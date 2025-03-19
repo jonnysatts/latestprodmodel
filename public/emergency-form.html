@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Data Entry Form</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.5;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        h1 { 
+            color: #2563eb;
+            margin-bottom: 30px;
+        }
+        fieldset {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        legend {
+            font-weight: bold;
+            padding: 0 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        button:hover {
+            background: #1d4ed8;
+        }
+        .data-display {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success-message {
+            padding: 10px;
+            background-color: #ecfdf5;
+            color: #047857;
+            border-radius: 4px;
+            margin-top: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Emergency Data Entry Form</h1>
+    <p>This form allows you to enter data directly without using the React application.</p>
+    
+    <form id="emergencyForm">
+        <fieldset>
+            <legend>Product Information</legend>
+            <div class="form-group">
+                <label for="name">Product Name</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="type">Product Type</label>
+                <select id="type" name="type" required>
+                    <option value="">Select a type</option>
+                    <option value="software">Software</option>
+                    <option value="service">Service</option>
+                    <option value="physical">Physical Product</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" name="description" rows="4"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="forecastType">Forecast Type</label>
+                <select id="forecastType" name="forecastType">
+                    <option value="">Select forecast type</option>
+                    <option value="continuous">Continuous</option>
+                    <option value="seasonal">Seasonal</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="forecastPeriod">Forecast Period (months)</label>
+                <input type="number" id="forecastPeriod" name="forecastPeriod" min="1" max="60">
+            </div>
+            
+            <div class="form-group">
+                <label for="eventsPerWeek">Events Per Week</label>
+                <input type="number" id="eventsPerWeek" name="eventsPerWeek" min="0">
+            </div>
+        </fieldset>
+        
+        <fieldset>
+            <legend>Logo Upload</legend>
+            <div class="form-group">
+                <label for="logoFile">Upload Logo</label>
+                <input type="file" id="logoFile" name="logoFile" accept="image/*">
+            </div>
+        </fieldset>
+        
+        <button type="submit">Save Product Data</button>
+    </form>
+    
+    <div class="success-message" id="successMessage">
+        Data saved successfully!
+    </div>
+    
+    <div class="data-display" id="dataDisplay"></div>
+    
+    <script>
+        document.getElementById('emergencyForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Collect form data
+            const formData = new FormData(this);
+            const data = {};
+            
+            for (let [key, value] of formData.entries()) {
+                if (key !== 'logoFile') {
+                    data[key] = value;
+                }
+            }
+            
+            // Handle file
+            const logoFile = document.getElementById('logoFile').files[0];
+            if (logoFile) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    data.logo = {
+                        name: logoFile.name,
+                        type: logoFile.type,
+                        size: logoFile.size,
+                        dataUrl: event.target.result
+                    };
+                    displayAndSaveData(data);
+                };
+                reader.readAsDataURL(logoFile);
+            } else {
+                displayAndSaveData(data);
+            }
+        });
+        
+        function displayAndSaveData(data) {
+            // Display the data
+            document.getElementById('dataDisplay').textContent = JSON.stringify(data, null, 2);
+            
+            // Save to localStorage
+            const savedProducts = JSON.parse(localStorage.getItem('emergencyProducts') || '[]');
+            savedProducts.push({
+                id: Date.now().toString(),
+                ...data,
+                createdAt: new Date().toISOString()
+            });
+            localStorage.setItem('emergencyProducts', JSON.stringify(savedProducts));
+            
+            // Show success message
+            const successMessage = document.getElementById('successMessage');
+            successMessage.style.display = 'block';
+            setTimeout(() => {
+                successMessage.style.display = 'none';
+            }, 3000);
+            
+            // Reset form
+            document.getElementById('emergencyForm').reset();
+        }
+    </script>
+</body>
+</html> 

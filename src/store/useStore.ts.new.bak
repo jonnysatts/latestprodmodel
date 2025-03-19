@@ -1,0 +1,10 @@
+// This file has been updated to support both cloud and local storage
+// It now delegates to the useHybridStore implementation
+
+import useHybridStore from "./useHybridStore";
+
+// Re-export the type definitions for backward compatibility
+export type { Scenario, Product, WeeklyActuals } from "../hooks/useLocalStore";
+
+// Export the hybrid store as the default implementation
+export default useHybridStore; 

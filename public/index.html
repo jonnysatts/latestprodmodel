@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Product Development Forecaster</title>
+    <style>
+      /* Critical CSS to ensure inputs work correctly */
+      input, textarea, select, button, [role="button"] {
+        pointer-events: auto !important;
+        z-index: 50 !important;
+        position: relative !important;
+      }
+      
+      /* Make inputs visible and interactive when focused */
+      input:focus, textarea:focus, select:focus {
+        outline: 2px solid #4285f4 !important;
+        z-index: 999999 !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div style="padding: 20px; text-align: center; font-family: system-ui, sans-serif;">
+        <h2>Loading Application...</h2>
+        <p>Please wait while the application initializes.</p>
+        <div style="display: inline-block; width: 30px; height: 30px; border: 3px solid #ddd; border-radius: 50%; border-top-color: #3b82f6; animation: spin 1s linear infinite;"></div>
+        <style>
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        </style>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Input Fix Script -->
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(() => {
+          // Function to fix input interactivity
+          function fixInputs() {
+            // Apply styles to each input element
+            document.querySelectorAll('input, textarea, select, button, [role="button"]').forEach(el => {
+              el.style.setProperty('pointer-events', 'auto', 'important');
+              el.style.setProperty('z-index', '50', 'important');
+              el.style.setProperty('position', 'relative', 'important');
+            });
+            
+            // Fix any parent elements that might be blocking inputs
+            document.querySelectorAll('.input-wrapper, .select-wrapper, .textarea-wrapper, form, fieldset').forEach(el => {
+              el.style.setProperty('pointer-events', 'auto', 'important');
+            });
+          }
+          
+          // Run immediately
+          fixInputs();
+          
+          // Continue to apply fixes as the DOM updates
+          const observer = new MutationObserver(fixInputs);
+          observer.observe(document.body, { childList: true, subtree: true });
+          
+          // Also run periodically for good measure
+          setInterval(fixInputs, 1000);
+        }, 100);
+      });
+    </script>
+  </body>
+</html> 

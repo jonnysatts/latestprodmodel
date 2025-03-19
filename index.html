@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Financial Fortress Model</title>
+    <script src="/error-handler.js"></script>
+    <script>
+      // Error handling to catch script loading issues
+      window.addEventListener('error', function(event) {
+        console.error('Global error caught:', event.error);
+        if (!document.getElementById('error-display')) {
+          const errorDiv = document.createElement('div');
+          errorDiv.id = 'error-display';
+          errorDiv.style.position = 'fixed';
+          errorDiv.style.top = '0';
+          errorDiv.style.left = '0';
+          errorDiv.style.width = '100%';
+          errorDiv.style.padding = '20px';
+          errorDiv.style.backgroundColor = '#f8d7da';
+          errorDiv.style.color = '#721c24';
+          errorDiv.style.zIndex = '9999';
+          errorDiv.innerHTML = '<strong>Error:</strong> ' + 
+            (event.error ? event.error.toString() : 'Unknown error') +
+            '<br><pre>' + (event.error ? event.error.stack : '') + '</pre>';
+          document.body.appendChild(errorDiv);
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <div id="root">
+      <div style="padding: 20px; text-align: center; font-family: system-ui, sans-serif;">
+        <h2>Loading Application...</h2>
+        <p>Please wait while the application initializes.</p>
+        <div style="display: inline-block; width: 30px; height: 30px; border: 3px solid #ddd; border-radius: 50%; border-top-color: #3b82f6; animation: spin 1s linear infinite;"></div>
+        <style>
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        </style>
+      </div>
+    </div>
+    <div id="fallback" style="display:none; padding: 20px; text-align: center;">
+      <h2>Application Failed to Load</h2>
+      <p>There was a problem loading the application. Please check the console for error messages.</p>
+    </div>
+    <script>
+      // Show fallback content if the app doesn't render within 5 seconds
+      setTimeout(function() {
+        if (document.getElementById('root').innerHTML.includes('Loading Application')) {
+          document.getElementById('fallback').style.display = 'block';
+          console.error('Application failed to render within timeout period');
+        }
+      }, 5000);
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

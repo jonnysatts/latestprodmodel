@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Standalone Emergency Form</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+            color: #333;
+        }
+        h1 { color: #2563eb; margin-bottom: 20px; }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover { background: #1d4ed8; }
+        .success { 
+            background: #ecfdf5; 
+            border: 1px solid #10b981;
+            color: #047857;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            display: none;
+        }
+        .data-display {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            margin-top: 30px;
+            border: 1px solid #e2e8f0;
+        }
+        
+        /* Iframe-specific styles */
+        .iframe-container {
+            padding: 0;
+            margin: 0;
+            background: white;
+        }
+    </style>
+</head>
+<body class="iframe-container">
+    <h1>Product Entry Form</h1>
+    
+    <div class="card">
+        <form id="productForm">
+            <h2>Basic Information</h2>
+            
+            <label for="name">Product Name:</label>
+            <input type="text" id="name" name="name" required placeholder="Enter product name">
+            
+            <label for="type">Product Type:</label>
+            <select id="type" name="type" required>
+                <option value="">Select a type</option>
+                <option value="software">Software</option>
+                <option value="service">Service</option>
+                <option value="physical">Physical Product</option>
+                <option value="Weekly Event">Weekly Event</option>
+                <option value="Monthly Event">Monthly Event</option>
+                <option value="Annual Event">Annual Event</option>
+            </select>
+            
+            <label for="description">Description:</label>
+            <textarea id="description" name="description" rows="3" placeholder="Enter product description"></textarea>
+            
+            <h2>Forecast Details</h2>
+            
+            <label for="forecastType">Forecast Type:</label>
+            <select id="forecastType" name="forecastType">
+                <option value="">Select forecast type</option>
+                <option value="continuous">Continuous</option>
+                <option value="seasonal">Seasonal</option>
+            </select>
+            
+            <label for="forecastPeriod">Forecast Period (months):</label>
+            <input type="number" id="forecastPeriod" name="forecastPeriod" min="1" max="60" placeholder="Enter number of months">
+            
+            <label for="eventsPerWeek">Events Per Week:</label>
+            <input type="number" id="eventsPerWeek" name="eventsPerWeek" min="0" placeholder="Enter events per week">
+            
+            <h2>Logo</h2>
+            
+            <label for="logoFile">Upload Logo:</label>
+            <input type="file" id="logoFile" name="logoFile" accept="image/*">
+            
+            <button type="submit">Save Product</button>
+        </form>
+        
+        <div id="success" class="success">
+            Product saved successfully!
+        </div>
+    </div>
+    
+    <script>
+        // Make 100% sure this runs even if there are other errors
+        try {
+            // Special handling for iframe mode
+            const isInIframe = window.parent !== window;
+            
+            // Check if we're in an iframe and adjust styles
+            if (isInIframe) {
+                document.body.classList.add('iframe-container');
+                document.querySelector('h1').style.fontSize = '1.5rem';
+            }
+            
+            // Function to display current form values
+            function updateFormDisplay() {
+                const form = document.getElementById('productForm');
+                const data = {};
+                
+                // Get all form fields except file input
+                new FormData(form).forEach((value, key) => {
+                    if (key !== 'logoFile') {
+                        data[key] = value;
+                    }
+                });
+                
+                // If there's a data display element, update it
+                const dataDisplay = document.getElementById('dataDisplay');
+                if (dataDisplay) {
+                    dataDisplay.textContent = JSON.stringify(data, null, 2);
+                }
+            }
+            
+            // Handle form submission
+            document.getElementById('productForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Collect form data
+                const formData = new FormData(this);
+                const data = {};
+                
+                formData.forEach((value, key) => {
+                    if (key !== 'logoFile') {
+                        data[key] = value;
+                    }
+                });
+                
+                // Process file upload
+                const logoFile = document.getElementById('logoFile').files[0];
+                
+                function saveProduct(data) {
+                    // Add metadata
+                    const productData = {
+                        id: Date.now().toString(),
+                        ...data,
+                        createdAt: new Date().toISOString()
+                    };
+                    
+                    // Save to localStorage with a smaller key to avoid quota issues
+                    try {
+                        const savedProducts = JSON.parse(localStorage.getItem('products') || '[]');
+                        // Limit to last 5 products to avoid storage issues
+                        if (savedProducts.length > 5) {
+                            savedProducts.shift();
+                        }
+                        savedProducts.push(productData);
+                        localStorage.setItem('products', JSON.stringify(savedProducts));
+                    } catch (e) {
+                        console.error("Storage error:", e);
+                    }
+                    
+                    // Send message to parent if in iframe
+                    if (isInIframe && window.parent) {
+                        window.parent.postMessage({
+                            type: 'PRODUCT_CREATED',
+                            product: productData
+                        }, '*');
+                    }
+                    
+                    // Show success message
+                    const successMsg = document.getElementById('success');
+                    successMsg.style.display = 'block';
+                    setTimeout(() => { 
+                        successMsg.style.display = 'none';
+                        
+                        // If in iframe, clear the form after success
+                        if (isInIframe) {
+                            document.getElementById('productForm').reset();
+                        }
+                    }, 3000);
+                    
+                    // Reset form
+                    document.getElementById('productForm').reset();
+                }
+                
+                if (logoFile) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        // For localStorage storage concerns, don't store the full image data
+                        data.logo = {
+                            name: logoFile.name,
+                            type: logoFile.type,
+                            size: logoFile.size,
+                            // Only save the first 100 chars of data URL to avoid storage issues
+                            dataPreview: event.target.result.substring(0, 100) + '...'
+                        };
+                        saveProduct(data);
+                    };
+                    reader.readAsDataURL(logoFile);
+                } else {
+                    saveProduct(data);
+                }
+            });
+            
+            // Initialize
+            console.log("Standalone form initialized successfully");
+        } catch (error) {
+            console.error("An error occurred in the standalone form:", error);
+            document.body.innerHTML += `
+                <div style="background: #fee2e2; border: 1px solid #ef4444; padding: 15px; margin-top: 20px; border-radius: 4px;">
+                    <h3 style="color: #b91c1c; margin-top: 0;">Error Detected</h3>
+                    <p>${error.message}</p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html> 

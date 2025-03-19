@@ -1,0 +1,130 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Function to check if user owns the data
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Function to check if data is valid for a product
+    function isValidProduct(product) {
+      return product.info != null &&
+        product.info.name is string &&
+        product.info.name.size() > 0 &&
+        product.info.type is string &&
+        product.userId is string &&
+        isOwner(product.userId);
+    }
+    
+    // Function to check if data is valid for a Marketing KPI
+    function isValidMarketingKPI(kpi) {
+      return kpi.name is string &&
+        kpi.name.size() > 0 &&
+        kpi.category is string &&
+        kpi.category.size() > 0 &&
+        (kpi.target == null || kpi.target is number) &&
+        (kpi.current == null || kpi.current is number) &&
+        (kpi.unit == null || kpi.unit is string) &&
+        kpi.productId is string &&
+        kpi.userId is string &&
+        isOwner(kpi.userId);
+    }
+    
+    // Products collection rules
+    match /products/{productId} {
+      // Allow read if authenticated
+      allow read: if isAuthenticated();
+      
+      // Allow create if authenticated and data is valid
+      allow create: if isAuthenticated() && isValidProduct(request.resource.data);
+      
+      // Allow update if authenticated, user owns the product, and valid fields
+      allow update: if isAuthenticated() && 
+                      isOwner(resource.data.userId) &&
+                      (request.resource.data.diff(resource.data).affectedKeys()
+                      .hasOnly(['info', 'growthMetrics', 'revenueMetrics', 'costMetrics', 
+                                'customerMetrics', 'weeklyProjections', 'actualMetrics', 
+                                'risks', 'seasonalAnalysis', 'scenarios']));
+      
+      // Allow delete if authenticated and user owns the product
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+      
+      // Marketing KPIs subcollection
+      match /marketingKpis/{kpiId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && isValidMarketingKPI(request.resource.data);
+        allow update: if isAuthenticated() && isOwner(resource.data.userId);
+        allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+      }
+    }
+    
+    // Standalone Marketing KPIs collection
+    match /marketingKpis/{kpiId} {
+      // Allow read if authenticated and user owns the KPI
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      
+      // Allow create if authenticated and data is valid
+      allow create: if isAuthenticated() && isValidMarketingKPI(request.resource.data);
+      
+      // Allow update if authenticated and user owns the KPI
+      allow update: if isAuthenticated() && 
+                      isOwner(resource.data.userId) &&
+                      request.resource.data.userId == resource.data.userId;
+      
+      // Allow delete if authenticated and user owns the KPI
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+    
+    // Scenarios collection rules
+    match /scenarios/{scenarioId} {
+      // Allow read if authenticated and user owns the scenario
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      
+      // Allow create if authenticated and data includes required fields
+      allow create: if isAuthenticated() && 
+                      request.resource.data.name is string &&
+                      request.resource.data.productId is string &&
+                      request.resource.data.userId is string &&
+                      isOwner(request.resource.data.userId);
+      
+      // Allow update if authenticated and user owns the scenario
+      allow update: if isAuthenticated() && isOwner(resource.data.userId) && 
+                      request.resource.data.userId == resource.data.userId;
+      
+      // Allow delete if authenticated and user owns the scenario
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+    
+    // User-specific data
+    match /users/{userId} {
+      // Only allow access to own user data
+      allow read, write: if isAuthenticated() && isOwner(userId);
+      
+      // User preferences
+      match /preferences/{prefId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+    }
+    
+    // User migration status tracking
+    match /migrations/{userId} {
+      allow read, write: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // If you have any public data (like templates or examples)
+    match /public/{document=**} {
+      allow read: if true;  // Anyone can read
+      allow write: if false;  // Only write through admin functions
+    }
+    
+    // Deny all other access by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+} 

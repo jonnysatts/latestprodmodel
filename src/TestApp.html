@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Page</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 600px;
+      padding: 30px;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    h1 { color: #2563eb; }
+    p { color: #4b5563; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Static Test Page</h1>
+    <p>If you can see this page, your server is working and can display basic HTML content.</p>
+    <p>This page doesn't require React or any JavaScript to render, so it should always display.</p>
+  </div>
+
+  <script>
+    // Simple script to log to console
+    console.log('Test page loaded successfully');
+    
+    // Add a message to the page
+    const container = document.querySelector('.container');
+    const message = document.createElement('div');
+    message.style.marginTop = '20px';
+    message.style.padding = '10px';
+    message.style.backgroundColor = '#dcfce7';
+    message.style.borderRadius = '4px';
+    message.style.color = '#166534';
+    message.textContent = 'JavaScript is running correctly on this page.';
+    container.appendChild(message);
+  </script>
+</body>
+</html> 
