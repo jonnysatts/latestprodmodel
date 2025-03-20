@@ -22,6 +22,7 @@ interface Product {
   costMetrics?: any;
   weeklyProjections?: any[];
   projections?: any;
+  actuals?: any[];
 }
 
 // Create a hook that provides the interface expected by ExecutiveDashboard
@@ -86,56 +87,114 @@ export function useHybridStore() {
   const getTotalRevenue = () => {
     if (products.length === 0) return 0;
     
-    // Hard-coded value from Financial Projections tab if we can't find real data
-    const DEMO_REVENUE = 39825;
-
     let totalRevenue = 0;
     
-    // Try different structures to find revenue data
-    products.forEach((product: Product) => {
-      // Check all possible locations of revenue data
-      if (product.projections?.revenue) {
-        totalRevenue += product.projections.revenue;
-      } else if (product.revenue?.totalRevenue) {
-        totalRevenue += product.revenue.totalRevenue;
-      } else if (product.revenueMetrics?.projectedRevenue) {
-        totalRevenue += product.revenueMetrics.projectedRevenue;
-      } else if (product.weeklyProjections && product.weeklyProjections.length > 0) {
-        // Sum up revenue from weekly projections if available
-        product.weeklyProjections.forEach(week => {
-          if (week.revenue) totalRevenue += week.revenue;
+    // Calculate using both actuals and projections
+    products.forEach((product: any) => {
+      const actuals = product.actuals || [];
+      const weeklyProjections = product.weeklyProjections || [];
+      
+      if (weeklyProjections.length > 0) {
+        let actualRevenue = 0;
+        let projectedRevenue = 0;
+        
+        // Get actual weeks
+        const actualWeeks = actuals.map((a: any) => a.week);
+        
+        // First sum up all actual revenue
+        actuals.forEach((actual: any) => {
+          if (actual && typeof actual.revenue === 'number') {
+            actualRevenue += actual.revenue;
+          }
         });
+        
+        // Then add projected revenue for weeks without actuals
+        weeklyProjections.forEach((projection: any) => {
+          if (projection && 
+              typeof projection.totalRevenue === 'number' && 
+              typeof projection.week === 'number' &&
+              !actualWeeks.includes(projection.week)) {
+            projectedRevenue += projection.totalRevenue;
+          }
+        });
+        
+        totalRevenue = actualRevenue + projectedRevenue;
+        console.log(`Product ${product.name || product.info?.name} revenue breakdown:`, {
+          actualRevenue,
+          projectedRevenue,
+          totalRevenue
+        });
+      } else if (product.projections?.revenue) {
+        // Fallback to projections if available
+        totalRevenue += product.projections.revenue;
       } else if (product.price && product.salesVolume) {
+        // Last fallback to simple calculation
         totalRevenue += product.price * product.salesVolume;
       }
     });
     
-    // If we couldn't extract any revenue, use the demo value
-    return totalRevenue > 0 ? totalRevenue : DEMO_REVENUE;
+    console.log("Total revenue calculated:", totalRevenue);
+    
+    // If we couldn't extract any revenue, return 0
+    return totalRevenue;
   };
 
   const getTotalCost = () => {
     if (products.length === 0) return 0;
     
-    // Hard-coded value from Financial Projections tab if we can't find real data
-    const DEMO_COST = 18447;
-    
     let totalCost = 0;
     
-    // Try different structures to find cost data
-    products.forEach((product: Product) => {
-      // Check all possible locations of cost data
-      if (product.projections?.cost) {
-        totalCost += product.projections.cost;
-      } else if (product.cost?.totalCost) {
-        totalCost += product.cost.totalCost;
-      } else if (product.costMetrics?.totalCost) {
-        totalCost += product.costMetrics.totalCost;
-      } else if (product.weeklyProjections && product.weeklyProjections.length > 0) {
-        // Sum up costs from weekly projections if available
-        product.weeklyProjections.forEach(week => {
-          if (week.cost) totalCost += week.cost;
+    // Calculate costs using both actuals and projections
+    products.forEach((product: any) => {
+      const actuals = product.actuals || [];
+      const weeklyProjections = product.weeklyProjections || [];
+      
+      if (weeklyProjections.length > 0) {
+        let actualCost = 0;
+        let projectedCost = 0;
+        
+        // Get actual weeks
+        const actualWeeks = actuals.map((a: any) => a.week);
+        
+        // First handle week 1 specially
+        const week1Projection = weeklyProjections.find((p: any) => p.week === 1);
+        const week1Actual = actuals.find((a: any) => a.week === 1);
+        
+        if (week1Actual && week1Projection) {
+          // For week 1 with actual data, include setup and marketing costs
+          const setupCosts = week1Projection.setupCosts || 0;
+          const marketingCosts = week1Projection.marketingCosts || 0;
+          
+          actualCost += week1Actual.expenses + setupCosts + marketingCosts;
+          console.log(`Week 1 actual costs with setup & marketing: ${week1Actual.expenses} + ${setupCosts} + ${marketingCosts} = ${week1Actual.expenses + setupCosts + marketingCosts}`);
+        } else if (week1Projection) {
+          // If no actuals for week 1, use the projection
+          projectedCost += week1Projection.totalCosts || 0;
+        }
+        
+        // Then handle other weeks
+        for (let i = 2; i <= 12; i++) {
+          const actual = actuals.find((a: any) => a.week === i);
+          const projection = weeklyProjections.find((p: any) => p.week === i);
+          
+          if (actual) {
+            // Use actual expenses for this week
+            actualCost += actual.expenses || 0;
+          } else if (projection) {
+            // Use projected costs otherwise
+            projectedCost += projection.totalCosts || 0;
+          }
+        }
+        
+        totalCost = actualCost + projectedCost;
+        console.log(`Product ${product.name || product.info?.name} cost breakdown:`, {
+          actualCost,
+          projectedCost,
+          totalCost
         });
+      } else if (product.projections?.cost) {
+        // Fallback to projections if available
+        totalCost += product.projections.cost;
       } else {
         // Use 45% of revenue as fallback
         const productRevenue = 
@@ -147,22 +206,20 @@ export function useHybridStore() {
       }
     });
     
-    // If we couldn't extract any cost, use the demo value
-    return totalCost > 0 ? totalCost : DEMO_COST;
+    console.log("Total cost calculated:", totalCost);
+    
+    // If we couldn't extract any cost, return 0
+    return totalCost;
   };
 
   const getTotalProfit = () => {
-    // Hard-coded value from Financial Projections tab if we can't calculate
-    const DEMO_PROFIT = 21378;
-    
     const revenue = getTotalRevenue();
     const cost = getTotalCost();
     
-    if (revenue === 0 && cost === 0) {
-      return DEMO_PROFIT;
-    }
+    const profit = revenue - cost;
+    console.log("Total profit calculated:", profit);
     
-    return revenue - cost;
+    return profit;
   };
   
   return {

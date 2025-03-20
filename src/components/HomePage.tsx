@@ -81,6 +81,58 @@ export default function HomePage() {
       const productId = crypto.randomUUID();
       const now = new Date();
       
+      // Generate 12 weeks of simple projections data for visualization
+      const weeklyProjections = Array.from({ length: 12 }, (_, weekIndex) => {
+        const week = weekIndex + 1;
+        // Generate some sample data with growth
+        const growthFactor = 1 + (0.1 * week); // 10% growth each week
+        const numberOfEvents = 1;
+        const averageEventAttendance = 100 * growthFactor;
+        const footTraffic = averageEventAttendance * numberOfEvents;
+        
+        // Revenue calculations
+        const ticketRevenue = footTraffic * 25 * 0.8; // 80% conversion
+        const fbRevenue = footTraffic * 15 * 0.6; // 60% conversion
+        const merchandiseRevenue = footTraffic * 10 * 0.2; // 20% conversion
+        const digitalRevenue = footTraffic * 5 * 0.1; // 10% conversion
+        const totalRevenue = ticketRevenue + fbRevenue + merchandiseRevenue + digitalRevenue;
+        
+        // Cost calculations
+        const marketingCosts = 500 * growthFactor;
+        const staffingCosts = numberOfEvents * 5 * 200; // 5 staff at $200 each
+        const eventCosts = numberOfEvents * 500;
+        const setupCosts = week === 1 ? 1000 : 0; // Only first week
+        const fbCogs = fbRevenue * 0.3; // 30% cost of goods
+        const merchandiseCogs = merchandiseRevenue * 0.5; // 50% cost of goods
+        const totalCosts = marketingCosts + staffingCosts + eventCosts + setupCosts + fbCogs + merchandiseCogs;
+        
+        // Profit calculations
+        const weeklyProfit = totalRevenue - totalCosts;
+        const cumulativeProfit = week === 1 ? weeklyProfit : 0; // Will be calculated after creation
+        
+        return {
+          week,
+          numberOfEvents,
+          footTraffic,
+          averageEventAttendance,
+          ticketRevenue,
+          fbRevenue,
+          merchandiseRevenue,
+          digitalRevenue,
+          totalRevenue,
+          marketingCosts,
+          staffingCosts,
+          eventCosts,
+          setupCosts,
+          fbCogs,
+          merchandiseCogs,
+          totalCosts,
+          weeklyProfit,
+          cumulativeProfit,
+          notes: ""
+        };
+      });
+      
       const product: Product = {
         info: {
           id: productId,
@@ -127,9 +179,19 @@ export default function HomePage() {
           },
           additionalStaffingPerEvent: 5,
           staffingCostPerPerson: 200,
-          eventCosts: 500,
-          otherEventCosts: 300,
-          additionalWeeklyCosts: 1000
+          eventCosts: [
+            { id: crypto.randomUUID(), name: "Venue Rental", amount: 500 }
+          ],
+          setupCosts: [
+            { id: crypto.randomUUID(), name: "Initial Setup", amount: 1000, amortize: true }
+          ],
+          staffRoles: [
+            { id: crypto.randomUUID(), role: "Event Staff", count: 5, costPerPerson: 200, notes: "", isFullTime: false }
+          ],
+          staffingAllocationMode: 'simple',
+          weeklyStaffCost: 1000,
+          fbCogPercentage: 30,
+          merchandiseCogPerUnit: 15
         },
         customerMetrics: {
           visitDuration: 120,
@@ -138,7 +200,7 @@ export default function HomePage() {
           returnIntent: 0.7,
           communityEngagement: 0.4
         },
-        weeklyProjections: [],
+        weeklyProjections: weeklyProjections,
         actualMetrics: [],
         actuals: [],
         risks: [],
@@ -149,7 +211,7 @@ export default function HomePage() {
       console.log("Creating product:", product);
       addProduct(product);
       setShowNewProduct(false);
-      setNewProduct((prev) => ({
+      setNewProduct((prev: any) => ({
         ...prev,
         name: '',
         type: 'Food & Beverage Products',
@@ -297,65 +359,108 @@ export default function HomePage() {
                 </div>
               )}
 
-              <div className="grid gap-4">
-                {products.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-                    <BarChart className="h-12 w-12 mb-4 text-gray-300" />
-                    <p className="text-lg mb-1">No products yet</p>
-                    <p className="text-sm text-gray-400 mb-4">Click "New Product" to get started</p>
-                    <Button 
-                      onClick={() => setShowNewProduct(true)} 
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      <PlusCircle className="h-4 w-4 mr-2" />
-                      Create Your First Product
-                    </Button>
-                  </div>
-                ) : (
-                  products.map((product) => (
-                    <div
-                      key={product.info.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        {product.info.logo ? (
-                          <img
-                            src={product.info.logo}
-                            alt={`${product.info.name} logo`}
-                            className="w-10 h-10 object-contain rounded"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center">
-                            <BarChart className="h-5 w-5 text-gray-400" />
-                          </div>
-                        )}
-                        <div>
-                          <h3 className="font-semibold">{product.info.name}</h3>
-                          <p className="text-sm text-gray-500">{product.info.type}</p>
-                          {product.info.description && (
-                            <p className="text-sm text-gray-600 mt-1">{product.info.description}</p>
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold">
+                    {products.length > 0 
+                      ? `You have ${products.length} product${products.length !== 1 ? 's' : ''}`
+                      : 'No products yet'}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    {products.length > 0 
+                      ? 'Select a product to view its dashboard or create a new one'
+                      : 'Create your first product to get started'}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => navigate('/portfolio')}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <BarChart className="h-4 w-4" />
+                    Portfolio View
+                  </Button>
+                  <Button
+                    onClick={() => setShowNewProduct(!showNewProduct)}
+                    className="flex items-center gap-2"
+                  >
+                    {showNewProduct ? (
+                      <>
+                        <Trash2 className="h-4 w-4" />
+                        Cancel
+                      </>
+                    ) : (
+                      <>
+                        <PlusCircle className="h-4 w-4" />
+                        Add Product
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {!showNewProduct && (
+                <div className="grid gap-4">
+                  {products.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                      <BarChart className="h-12 w-12 mb-4 text-gray-300" />
+                      <p className="text-lg mb-1">No products yet</p>
+                      <p className="text-sm text-gray-400 mb-4">Click "New Product" to get started</p>
+                      <Button 
+                        onClick={() => setShowNewProduct(true)} 
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        <PlusCircle className="h-4 w-4 mr-2" />
+                        Create Your First Product
+                      </Button>
+                    </div>
+                  ) : (
+                    products.map((product) => (
+                      <div
+                        key={product.info.id}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-4">
+                          {product.info.logo ? (
+                            <img
+                              src={product.info.logo}
+                              alt={`${product.info.name} logo`}
+                              className="w-10 h-10 object-contain rounded"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center">
+                              <BarChart className="h-5 w-5 text-gray-400" />
+                            </div>
                           )}
+                          <div>
+                            <h3 className="font-semibold">{product.info.name}</h3>
+                            <p className="text-sm text-gray-500">{product.info.type}</p>
+                            {product.info.description && (
+                              <p className="text-sm text-gray-600 mt-1">{product.info.description}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => navigate(`/product/${product.info.id}`)}
+                          >
+                            View Details
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            onClick={() => deleteProduct(product.info.id)}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => navigate(`/product/${product.info.id}`)}
-                        >
-                          View Details
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          onClick={() => deleteProduct(product.info.id)}
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+                    ))
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
           

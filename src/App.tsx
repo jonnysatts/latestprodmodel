@@ -4,6 +4,7 @@ import HomePage from './components/HomePage';
 import ProductDashboard from './components/ProductDashboard';
 import ProductScenario from './components/ProductScenario';
 import ProductBasedScenarioModeling from './components/ProductBasedScenarioModeling';
+import PortfolioView from './components/PortfolioView';
 import NotFound from './components/NotFound';
 import useStore from './store/useStore';
 import useStorageSync from './hooks/useStorageSync';
@@ -122,6 +123,7 @@ function AppContent() {
     <div className="app">
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/portfolio" element={<PortfolioView />} />
         <Route path="/product/:id" element={<ProductDashboard />} />
         <Route path="/product/:id/scenario" element={<ProductScenario />} />
         <Route path="/scenarios" element={<ProductBasedScenarioModeling />} />

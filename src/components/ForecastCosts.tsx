@@ -114,6 +114,12 @@ const InputWithFocus = React.memo(({
 
 InputWithFocus.displayName = 'InputWithFocus';
 
+// Generator for producing unique IDs to identify form elements
+const generateId = (() => {
+  let count = 0;
+  return (prefix = 'id') => `${prefix}-${count++}`;
+})();
+
 export default function ForecastCosts() {
   const { 
     products,
@@ -182,6 +188,7 @@ export default function ForecastCosts() {
   // Update projections whenever metrics change
   useEffect(() => {
     if (currentProduct) {
+      console.log("Cost metrics changed, regenerating projections:", costMetrics);
       const projections = generateWeeklyProjections(
         currentProduct.info,
         currentProduct.growthMetrics,
@@ -194,7 +201,7 @@ export default function ForecastCosts() {
         weeklyProjections: projections
       });
     }
-  }, [currentProduct?.costMetrics]);
+  }, [currentProduct?.info?.id, costMetrics]);
 
   // Handle marketing cost changes - this is now primarily for depreciation
   const handleMarketingCostChange = useCallback((field: string, value: unknown) => {
@@ -313,7 +320,8 @@ export default function ForecastCosts() {
     // Use a small delay for operations that might cause re-renders
     if (field === 'fbCogPercentage' || field === 'merchandiseCogPerUnit' || 
         field === 'weeklyStaffCost' || field === 'additionalStaffingPerEvent' || 
-        field === 'staffingCostPerPerson') {
+        field === 'staffingCostPerPerson' || field === 'setupCosts' ||
+        field === 'eventCosts') {
       // Simple debounce for potentially expensive operations
       const timer = setTimeout(() => {
         if (!currentProduct) return;
@@ -330,6 +338,8 @@ export default function ForecastCosts() {
           currentProduct.revenueMetrics,
           updatedCostMetrics
         );
+        
+        console.log(`Regenerating projections after ${field} update:`, updatedCostMetrics);
         
         updateProduct(currentProduct.info.id, {
           costMetrics: updatedCostMetrics,
@@ -762,84 +772,53 @@ export default function ForecastCosts() {
     const nameInputId = `cost-name-${cost.id}`;
     const amountInputId = `cost-amount-${cost.id}`;
     
-    // Use refs to set initial values and attach event listeners after render
-    const containerRef = React.useRef<HTMLDivElement>(null);
+    // Local state to handle input values before committing changes
+    const [localName, setLocalName] = useState<string>(cost.name || '');
+    const [localAmount, setLocalAmount] = useState<string>(
+      cost.amount !== undefined ? (cost.amount === 0 ? '' : String(cost.amount)) : ''
+    );
     
-    // Set up the vanilla inputs once after mounting
-    React.useLayoutEffect(() => {
-      // Set initial values directly in the DOM after render
-      if (containerRef.current) {
-        const nameInput = document.getElementById(nameInputId) as HTMLInputElement;
-        const amountInput = document.getElementById(amountInputId) as HTMLInputElement;
-        
-        if (nameInput) {
-          // Set initial value
-          nameInput.value = cost.name;
-          
-          // Set up vanilla event listener bypassing React entirely
-          nameInput.addEventListener('input', (e) => {
-            const target = e.target as HTMLInputElement;
-            onUpdate(cost.id, 'name', target.value);
-          });
-        }
-        
-        if (amountInput) {
-          // Set initial value (display empty for zero)
-          amountInput.value = cost.amount === 0 ? '' : String(cost.amount);
-          
-          // Set up vanilla event listener bypassing React entirely
-          amountInput.addEventListener('input', (e) => {
-            const target = e.target as HTMLInputElement;
-            const value = target.value === '' ? 0 : parseFloat(target.value);
-            if (!isNaN(value)) {
-              onUpdate(cost.id, 'amount', value);
-            }
-          });
-        }
-      }
-      
-      // Cleanup event listeners
-      return () => {
-        const nameInput = document.getElementById(nameInputId);
-        const amountInput = document.getElementById(amountInputId);
-        
-        if (nameInput) {
-          nameInput.removeEventListener('input', () => {});
-        }
-        
-        if (amountInput) {
-          amountInput.removeEventListener('input', () => {});
-        }
-      };
-    // Only run this effect on mount and unmount, not on re-renders
-    }, []); 
+    // Sync local state with props when they change, but only when not focused
+    useEffect(() => {
+      setLocalName(cost.name || '');
+      setLocalAmount(cost.amount === 0 ? '' : String(cost.amount));
+    }, [cost.name, cost.amount]);
     
-    // This is where we render the container with uncontrolled inputs
+    // Handle name change
+    const handleNameChange = (value: unknown) => {
+      setLocalName(value as string);
+      onUpdate(cost.id, 'name', value);
+    };
+    
+    // Handle amount change
+    const handleAmountChange = (value: unknown) => {
+      onUpdate(cost.id, 'amount', value);
+    };
+    
     return (
-      <div ref={containerRef} className="flex gap-4 items-center border-b pb-4">
+      <div className="flex gap-4 items-center border-b pb-4">
         <div className="flex-grow grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label>Cost Name</Label>
-            {/* Uncontrolled input with ID for vanilla JS to grab */}
-            <input
+            <Label htmlFor={nameInputId}>Cost Name</Label>
+            <InputWithFocus
               id={nameInputId}
               type="text"
+              value={localName}
+              onChange={handleNameChange}
               placeholder="e.g., Venue Rental"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              // Don't use value or onChange props - let vanilla JS handle it
             />
           </div>
           <div className="space-y-2">
-            <Label>Weekly Amount ($)</Label>
-            {/* Uncontrolled input with ID for vanilla JS to grab */}
-            <input
+            <Label htmlFor={amountInputId}>Weekly Amount ($)</Label>
+            <InputWithFocus
               id={amountInputId}
               type="number"
-              min="0"
-              step="0.01"
+              min={0}
+              step={0.01}
+              value={localAmount}
+              onChange={handleAmountChange}
               placeholder="0.00"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              // Don't use value or onChange props - let vanilla JS handle it
+              parser={(v) => parseFloat(v)}
             />
           </div>
         </div>
@@ -1260,8 +1239,11 @@ export default function ForecastCosts() {
                         id="campaignDuration"
                         type="number"
                         min="1"
-                        value={costMetrics.marketing.campaignDurationWeeks || 1}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleMarketingCostChange('campaignDurationWeeks', parseInt(e.target.value))}
+                        value={costMetrics.marketing.campaignDurationWeeks === null ? '' : costMetrics.marketing.campaignDurationWeeks}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          const value = e.target.value === '' ? null : parseInt(e.target.value);
+                          handleMarketingCostChange('campaignDurationWeeks', value);
+                        }}
                       />
                     </div>
                   </div>

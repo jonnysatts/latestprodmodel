@@ -54,7 +54,26 @@ export default function WeeklyForecast() {
 
   // Helper to find actuals for a specific week
   const getActualsForWeek = (weekNumber: number): WeeklyActuals | undefined => {
-    return actuals.find(actual => actual.week === weekNumber);
+    const actualData = actuals.find(actual => actual.week === weekNumber);
+    
+    // For week 1, include setup costs and marketing costs from the projections
+    if (weekNumber === 1 && actualData) {
+      // Get the projected data for week 1 to capture setup costs and marketing
+      const week1Projection = weeklyProjections.find(w => w.week === 1);
+      
+      if (week1Projection) {
+        // Create a new object that combines actual data with setup and marketing costs
+        return {
+          ...actualData,
+          // Add setup costs and marketing costs to the total expenses
+          expenses: actualData.expenses + 
+                   (week1Projection.setupCosts || 0) + 
+                   (week1Projection.marketingCosts || 0),
+        };
+      }
+    }
+    
+    return actualData;
   };
 
   // Calculate the cumulative profit considering actuals
@@ -134,22 +153,26 @@ export default function WeeklyForecast() {
 
   // More detailed examination of Week 1 data
   const week1Data = weeklyProjections.find(w => w.week === 1);
-  if (week1Data) {
-    console.log('WEEK 1 DETAILS:');
-    console.log('Visitors:', week1Data.footTraffic);
-    console.log('F&B Spend per Customer:', currentProduct?.revenueMetrics?.fbSpend);
-    console.log('F&B Conversion Rate:', currentProduct?.revenueMetrics?.fbConversionRate);
-    console.log('Expected F&B Revenue:', week1Data.footTraffic * (currentProduct?.revenueMetrics?.fbSpend || 0) * (currentProduct?.revenueMetrics?.fbConversionRate || 0));
-    console.log('COGS Percentage:', currentProduct?.costMetrics?.fbCogPercentage, '%');
-    console.log('Expected F&B COGS:', week1Data.footTraffic * (currentProduct?.revenueMetrics?.fbSpend || 0) * (currentProduct?.revenueMetrics?.fbConversionRate || 0) * ((currentProduct?.costMetrics?.fbCogPercentage || 0) / 100));
-    console.log('Actual F&B COGS in data:', week1Data.fbCogs);
-  }
+
+  // Debug cost information for Week 1
+  const week1Actual = getActualsForWeek(1);
+  
+  console.log('WEEK 1 COSTS BREAKDOWN:', {
+    'Setup Costs': week1Data?.setupCosts || 0,
+    'Marketing Costs': week1Data?.marketingCosts || 0,
+    'Actual Expenses Before': week1Actual ? actuals.find(a => a.week === 1)?.expenses : 'N/A',
+    'Actual Expenses After': week1Actual?.expenses || 'N/A',
+    'Projected Total Costs': week1Data?.totalCosts || 0,
+    'Weekly Profit': week1Actual 
+      ? (week1Actual.revenue - week1Actual.expenses) 
+      : (week1Data?.weeklyProfit || 0)
+  });
   
   // Calculate total F&B revenue for display
-  const totalFbRevenue = weeklyProjections.reduce((sum, week) => sum + (week.fbRevenue || 0), 0);
+  const calculatedFbRevenue = weeklyProjections.reduce((sum, week) => sum + (week.fbRevenue || 0), 0);
   
   console.log('Current Product Cost Metrics:', currentProduct.costMetrics);
-  console.log('Total F&B Revenue:', totalFbRevenue, 'Total F&B COGS:', totalFbCogs);
+  console.log('Total F&B Revenue:', calculatedFbRevenue, 'Total F&B COGS:', totalFbCogs);
 
   return (
     <div className="space-y-6">
@@ -191,7 +214,7 @@ export default function WeeklyForecast() {
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <div className="text-sm text-gray-500">Average Weekly F&B Revenue</div>
-                  <div className="font-medium">{formatCurrency(totalFbRevenue / totalWeeks)}</div>
+                  <div className="font-medium">{formatCurrency(calculatedFbRevenue / totalWeeks)}</div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-500">Average Weekly F&B COGS</div>
@@ -252,9 +275,13 @@ export default function WeeklyForecast() {
                   const actualData = getActualsForWeek(week.week);
                   
                   // Calculate weekly profit based on available actual data
-                  const weeklyProfit = actualData 
-                    ? (actualData.revenue - actualData.expenses)
-                    : week.weeklyProfit;
+                  let weeklyProfit = 0;
+                  if (actualData) {
+                    // Use actual revenue and expenses (which now includes setup and marketing costs)
+                    weeklyProfit = actualData.revenue - actualData.expenses;
+                  } else {
+                    weeklyProfit = week.weeklyProfit;
+                  }
                   
                   // Calculate cumulative profit considering actuals for previous weeks
                   const cumulativeProfit = calculateCumulativeProfit(week.week);
@@ -316,11 +343,11 @@ export default function WeeklyForecast() {
                         </TableCell>
                       )}
                       
-                      <TableCell className={`text-right ${actualData ? 'text-green-600 font-medium' : ''}`}>
+                      <TableCell className={`text-right ${actualData ? 'font-medium' : ''} ${weeklyProfit < 0 ? 'text-red-600' : actualData ? 'text-green-600' : ''}`}>
                         {formatCurrency(weeklyProfit)}
                       </TableCell>
                       
-                      <TableCell className="text-right">
+                      <TableCell className={`text-right ${cumulativeProfit < 0 ? 'text-red-600' : ''}`}>
                         {formatCurrency(cumulativeProfit)}
                       </TableCell>
                       
@@ -376,7 +403,7 @@ export default function WeeklyForecast() {
                     <TableCell className="text-right">-</TableCell>
                   )}
                   
-                  <TableCell className="text-right">
+                  <TableCell className={`text-right ${(totalActualProfit + totalProjectedProfit) < 0 ? 'text-red-600' : ''}`}>
                     {formatCurrency(totalActualProfit + totalProjectedProfit)}
                   </TableCell>
                   <TableCell className="text-right">-</TableCell>
