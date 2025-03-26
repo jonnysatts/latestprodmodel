@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Upload, X, Check } from 'lucide-react';
 import type { ProductInfo } from '../types';
 import useStore from '../store/useStore';
-import UserProfile from './UserProfile';
 
 interface ProductHeaderProps {
   info: ProductInfo;
@@ -16,14 +15,14 @@ interface ProductHeaderProps {
 export default function ProductHeader({ info }: ProductHeaderProps) {
   const { updateProduct } = useStore();
   const [isEditing, setIsEditing] = useState(false);
-  const [editedInfo, setEditedInfo] = useState(info);
+  const [editedInfo, setEditedInfo] = useState<ProductInfo>(info);
 
-  const handleLogoUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = useCallback((event: any) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setEditedInfo(prev => ({
+        setEditedInfo((prev: ProductInfo) => ({
           ...prev,
           logo: reader.result as string
         }));
@@ -44,10 +43,6 @@ export default function ProductHeader({ info }: ProductHeaderProps) {
 
   return (
     <div>
-      <div className="mb-4 flex justify-end">
-        <UserProfile />
-      </div>
-
       {!isEditing ? (
         <Card className="mb-6">
           <CardContent className="pt-6">
@@ -110,7 +105,7 @@ export default function ProductHeader({ info }: ProductHeaderProps) {
                   <div>
                     <Input
                       value={editedInfo.name}
-                      onChange={(e) => setEditedInfo(prev => ({ ...prev, name: e.target.value }))}
+                      onChange={(e: any) => setEditedInfo((prev: ProductInfo) => ({ ...prev, name: e.target.value }))}
                       placeholder="Product Name"
                       className="text-xl font-bold"
                     />
@@ -119,7 +114,7 @@ export default function ProductHeader({ info }: ProductHeaderProps) {
                   <div>
                     <Select
                       value={editedInfo.type}
-                      onValueChange={(value) => setEditedInfo(prev => ({ ...prev, type: value as ProductInfo['type'] }))}
+                      onValueChange={(value) => setEditedInfo((prev: ProductInfo) => ({ ...prev, type: value as ProductInfo['type'] }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select product type" />
@@ -137,7 +132,7 @@ export default function ProductHeader({ info }: ProductHeaderProps) {
                   <div>
                     <Textarea
                       value={editedInfo.description || ''}
-                      onChange={(e) => setEditedInfo(prev => ({ ...prev, description: e.target.value }))}
+                      onChange={(e: any) => setEditedInfo((prev: ProductInfo) => ({ ...prev, description: e.target.value }))}
                       placeholder="Product Description"
                       className="min-h-[100px]"
                     />

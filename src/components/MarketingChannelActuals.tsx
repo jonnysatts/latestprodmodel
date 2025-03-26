@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
+import { Description } from './ui/card';
 import {
   Table,
   TableBody,
@@ -28,10 +26,11 @@ import {
   DialogTrigger
 } from "./ui/dialog";
 import { Label } from "./ui/label";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 import useStore from '../store/useStore';
 import { formatCurrency, formatNumber, formatPercent } from "../lib/utils";
 import type { 
-  Product, 
   ActualMetrics, 
   MarketingChannelItem,
   MarketingChannelPerformance

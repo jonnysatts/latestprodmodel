@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -37,6 +37,13 @@ function RiskAssessment() {
     riskScore: 1 // Default score (low likelihood * low impact)
   });
 
+  // Effect to reset to table view when adding a new risk
+  useEffect(() => {
+    if (showNewRisk) {
+      setViewMode('table');
+    }
+  }, [showNewRisk]);
+
   if (!currentProduct) {
     return (
       <div className="text-center py-8 text-gray-500">
@@ -69,21 +76,19 @@ function RiskAssessment() {
   };
 
   const handleFilterTypeChange = (value: string | null) => {
-    setFilterType(value);
+    setFilterType(value === 'all' ? null : value);
   };
 
   const handleFilterStatusChange = (value: string | null) => {
-    setFilterStatus(value);
+    setFilterStatus(value === 'all' ? null : value);
   };
 
-  const handleFilterLikelihoodChange = (e: React.SyntheticEvent<HTMLSelectElement>) => {
-    const target = e.target as HTMLSelectElement;
-    setFilteredLikelihood(target.value === 'All' ? null : target.value as LikelihoodLevel);
+  const handleFilterLikelihoodChange = (e: any) => {
+    setFilteredLikelihood(e.target.value === 'All' ? null : e.target.value as LikelihoodLevel);
   };
 
-  const handleFilterImpactChange = (e: React.SyntheticEvent<HTMLSelectElement>) => {
-    const target = e.target as HTMLSelectElement;
-    setFilteredImpact(target.value === 'All' ? null : target.value as ImpactLevel);
+  const handleFilterImpactChange = (e: any) => {
+    setFilteredImpact(e.target.value === 'All' ? null : e.target.value as ImpactLevel);
   };
 
   const handleFinancialImpactChange = (value: string) => {
@@ -98,13 +103,21 @@ function RiskAssessment() {
       updateRiskAssessment(
         currentProduct.info.id,
         editingRiskId,
-        formData as Partial<RiskAssessmentType>
+        {
+          ...formData,
+          riskScore: (formData.likelihood === 'Low' ? 1 : formData.likelihood === 'Medium' ? 2 : 3) * 
+                    (formData.impact === 'Low' ? 1 : formData.impact === 'Medium' ? 2 : 3)
+        }
       );
     } else {
       // Add new risk
       addRiskAssessment(
         currentProduct.info.id,
-        formData as Omit<RiskAssessmentType, 'id'>
+        {
+          ...formData,
+          riskScore: (formData.likelihood === 'Low' ? 1 : formData.likelihood === 'Medium' ? 2 : 3) * 
+                    (formData.impact === 'Low' ? 1 : formData.impact === 'Medium' ? 2 : 3)
+        } as Omit<RiskAssessmentType, 'id'>
       );
     }
 
@@ -204,18 +217,26 @@ function RiskAssessment() {
         <CardHeader className="flex flex-row items-center justify-between bg-slate-50">
           <CardTitle>Risk Assessment</CardTitle>
           <div className="flex space-x-2">
-            <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'table' | 'matrix')}>
-              <TabsList>
-                <TabsTrigger value="table" className="flex items-center">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Table View
-                </TabsTrigger>
-                <TabsTrigger value="matrix" className="flex items-center">
-                  <BarChart className="h-4 w-4 mr-2" />
-                  Risk Matrix
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="flex items-center space-x-2 rounded-md bg-muted p-1">
+              <Button 
+                variant={viewMode === 'table' ? 'default' : 'ghost'} 
+                size="sm"
+                onClick={() => setViewMode('table')}
+                className="flex items-center"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Table View
+              </Button>
+              <Button 
+                variant={viewMode === 'matrix' ? 'default' : 'ghost'} 
+                size="sm"
+                onClick={() => setViewMode('matrix')}
+                className="flex items-center"
+              >
+                <BarChart className="h-4 w-4 mr-2" />
+                Risk Matrix
+              </Button>
+            </div>
             
             <Button 
               variant="outline" 
@@ -249,7 +270,7 @@ function RiskAssessment() {
                 <Label htmlFor="filterType">Filter by Type</Label>
                 <Select 
                   value={filterType || 'all'} 
-                  onValueChange={(value) => setFilterType(value === 'all' ? null : value)}
+                  onValueChange={(value: string) => handleFilterTypeChange(value)}
                 >
                   <SelectTrigger className="w-[200px]">
                     <SelectValue placeholder="All Types" />
@@ -262,12 +283,12 @@ function RiskAssessment() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="w-full md:w-auto">
                 <Label htmlFor="filterStatus">Filter by Status</Label>
                 <Select 
                   value={filterStatus || 'all'} 
-                  onValueChange={(value) => setFilterStatus(value === 'all' ? null : value)}
+                  onValueChange={(value: string) => handleFilterStatusChange(value)}
                 >
                   <SelectTrigger className="w-[200px]">
                     <SelectValue placeholder="All Statuses" />
@@ -280,125 +301,101 @@ function RiskAssessment() {
                   </SelectContent>
                 </Select>
               </div>
-              
-              <div className="w-full md:w-auto flex items-end">
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setFilterType(null);
-                    setFilterStatus(null);
-                    setFilteredLikelihood(null);
-                    setFilteredImpact(null);
-                  }}
-                >
-                  Clear Filters
-                </Button>
-              </div>
-              
-              {/* Show active matrix filter if any */}
+
               {filteredLikelihood && filteredImpact && (
-                <div className="w-full flex items-center mt-2">
-                  <span className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full flex items-center">
-                    Filtered by: {filteredLikelihood} Likelihood + {filteredImpact} Impact
-                    <Button
-                      variant="ghost" 
-                      size="sm" 
-                      className="ml-2 h-5 w-5 p-0"
-                      onClick={() => {
-                        setFilteredLikelihood(null);
-                        setFilteredImpact(null);
-                      }}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </span>
+                <div className="w-full md:w-auto flex items-center">
+                  <span className="text-sm font-medium mr-2">Filtered by:</span>
+                  <div className={`px-2 py-1 rounded text-xs font-medium ${
+                    getRiskScoreColor(
+                      (filteredLikelihood === 'Low' ? 1 : filteredLikelihood === 'Medium' ? 2 : 3) * 
+                      (filteredImpact === 'Low' ? 1 : filteredImpact === 'Medium' ? 2 : 3)
+                    )
+                  }`}>
+                    {filteredLikelihood} Likelihood / {filteredImpact} Impact
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => {
+                      setFilteredLikelihood(null);
+                      setFilteredImpact(null);
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
               )}
             </div>
 
-            {/* Conditional rendering based on view mode */}
-            {viewMode === 'matrix' ? (
-              <RiskMatrix 
-                risks={currentProduct.risks} 
-                onSelectCell={handleMatrixCellClick} 
-              />
-            ) : (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium">Total Risks</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{totalRisks}</div>
-                      <p className="text-xs text-muted-foreground">
-                        across {Object.keys(RISK_TYPES).length} categories
-                      </p>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium">High Risks</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-red-600">
-                        {highRisks}
-                        <span className="text-sm font-normal text-muted-foreground ml-2">
-                          ({totalRisks > 0 ? Math.round((highRisks / totalRisks) * 100) : 0}%)
-                        </span>
+            {/* Metrics cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex justify-between">
+                    <div>
+                      <div className="text-sm font-medium text-muted-foreground">Total Risks</div>
+                      <div className="text-3xl font-bold">{totalRisks}</div>
+                    </div>
+                    <div className="flex">
+                      <div className="flex flex-col items-center mx-2">
+                        <div className="text-xs font-medium text-green-600">{lowRisks}</div>
+                        <div className="text-xs text-gray-500">Low</div>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {highRisks > 0 ? 'requiring immediate attention' : 'no high risks detected'}
-                      </p>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium">Risk Distribution</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center gap-2">
-                        <div className="bg-red-100 h-2 rounded-full" style={{ width: `${totalRisks > 0 ? (highRisks / totalRisks) * 100 : 0}%` }}></div>
-                        <div className="bg-amber-100 h-2 rounded-full" style={{ width: `${totalRisks > 0 ? (mediumRisks / totalRisks) * 100 : 0}%` }}></div>
-                        <div className="bg-green-100 h-2 rounded-full" style={{ width: `${totalRisks > 0 ? (lowRisks / totalRisks) * 100 : 0}%` }}></div>
+                      <div className="flex flex-col items-center mx-2">
+                        <div className="text-xs font-medium text-amber-600">{mediumRisks}</div>
+                        <div className="text-xs text-gray-500">Medium</div>
                       </div>
-                      <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                        <span>High: {highRisks}</span>
-                        <span>Medium: {mediumRisks}</span>
-                        <span>Low: {lowRisks}</span>
+                      <div className="flex flex-col items-center mx-2">
+                        <div className="text-xs font-medium text-red-600">{highRisks}</div>
+                        <div className="text-xs text-gray-500">High</div>
                       </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium">Financial Impact</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{formatCurrency(totalFinancialImpact)}</div>
-                      <p className="text-xs text-muted-foreground">
-                        {formatCurrency(highRiskFinancialImpact)} from high risk items
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-                {/* Show form for adding/editing risks */}
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-sm font-medium text-muted-foreground">Financial Impact</div>
+                  <div className="text-3xl font-bold">{formatCurrency(totalFinancialImpact)}</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    High-risk items: {formatCurrency(highRiskFinancialImpact)}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-sm font-medium text-muted-foreground">Risk Alert</div>
+                  {highRisks > 0 ? (
+                    <div className="flex items-center mt-2">
+                      <AlertTriangle className="h-5 w-5 text-red-500 mr-2" />
+                      <div className="text-sm">
+                        {highRisks} high-risk {highRisks === 1 ? 'item' : 'items'} need attention
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm mt-2">No high-risk items detected</div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {viewMode === 'table' ? (
+              <div className="space-y-4">
+                {/* Risk form */}
                 {showNewRisk && (
-                  <div className="border rounded-lg p-4 mb-4 bg-white">
-                    <h3 className="text-lg font-medium mb-4">
-                      {editingRiskId ? 'Edit Risk' : 'Add New Risk'}
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="risk-type">Risk Type</Label>
-                        <Select
-                          value={formData.type as string}
-                          onValueChange={(value) => handleInputChange('type', value)}
+                  <div className="bg-slate-50 p-6 rounded-lg mb-6">
+                    <h3 className="text-lg font-medium mb-4">{editingRiskId ? 'Edit Risk' : 'Add New Risk'}</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                      <div>
+                        <Label htmlFor="riskType">Risk Type</Label>
+                        <Select 
+                          value={formData.type} 
+                          onValueChange={handleTypeChange}
                         >
-                          <SelectTrigger id="risk-type">
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select risk type" />
                           </SelectTrigger>
                           <SelectContent>
@@ -409,36 +406,34 @@ function RiskAssessment() {
                         </Select>
                       </div>
                       
-                      <div className="space-y-2">
-                        <Label htmlFor="risk-owner">Risk Owner</Label>
+                      <div>
+                        <Label htmlFor="riskOwner">Owner</Label>
                         <Input
-                          id="risk-owner"
-                          value={formData.owner || ''}
-                          onChange={(e) => handleInputChange('owner', e.target.value)}
+                          id="riskOwner"
                           placeholder="Who is responsible for this risk?"
+                          value={formData.owner}
+                          onChange={(e) => handleInputChange('owner', e.target.value)}
                         />
                       </div>
-                    </div>
-                    
-                    <div className="space-y-2 mb-4">
-                      <Label htmlFor="risk-description">Description</Label>
-                      <Textarea
-                        id="risk-description"
-                        value={formData.description || ''}
-                        onChange={(e) => handleInputChange('description', e.target.value)}
-                        placeholder="Describe the risk..."
-                        rows={3}
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="risk-likelihood">Likelihood</Label>
-                        <Select
-                          value={formData.likelihood as string}
-                          onValueChange={(value) => handleInputChange('likelihood', value)}
+                      
+                      <div className="md:col-span-2">
+                        <Label htmlFor="riskDescription">Description</Label>
+                        <Textarea
+                          id="riskDescription"
+                          placeholder="Describe the risk in detail"
+                          value={formData.description}
+                          onChange={(e) => handleInputChange('description', e.target.value)}
+                          rows={3}
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="riskLikelihood">Likelihood</Label>
+                        <Select 
+                          value={formData.likelihood} 
+                          onValueChange={handleLikelihoodChange}
                         >
-                          <SelectTrigger id="risk-likelihood">
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select likelihood" />
                           </SelectTrigger>
                           <SelectContent>
@@ -449,13 +444,13 @@ function RiskAssessment() {
                         </Select>
                       </div>
                       
-                      <div className="space-y-2">
-                        <Label htmlFor="risk-impact">Impact</Label>
-                        <Select
-                          value={formData.impact as string}
-                          onValueChange={(value) => handleInputChange('impact', value)}
+                      <div>
+                        <Label htmlFor="riskImpact">Impact</Label>
+                        <Select 
+                          value={formData.impact} 
+                          onValueChange={handleImpactChange}
                         >
-                          <SelectTrigger id="risk-impact">
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select impact" />
                           </SelectTrigger>
                           <SelectContent>
@@ -466,37 +461,24 @@ function RiskAssessment() {
                         </Select>
                       </div>
                       
-                      <div className="space-y-2">
-                        <Label htmlFor="financial-impact">Financial Impact ($)</Label>
+                      <div>
+                        <Label htmlFor="riskFinancialImpact">Financial Impact ($)</Label>
                         <Input
-                          id="financial-impact"
+                          id="riskFinancialImpact"
                           type="number"
-                          value={formData.financialImpact || 0}
-                          onChange={(e) => handleInputChange('financialImpact', parseFloat(e.target.value))}
-                          placeholder="0.00"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="risk-mitigation">Mitigation Strategy</Label>
-                        <Textarea
-                          id="risk-mitigation"
-                          value={formData.mitigationStrategy || ''}
-                          onChange={(e) => handleInputChange('mitigationStrategy', e.target.value)}
-                          placeholder="How will this risk be mitigated?"
-                          rows={3}
+                          placeholder="0"
+                          value={formData.financialImpact || ''}
+                          onChange={(e) => handleFinancialImpactChange(e.target.value)}
                         />
                       </div>
                       
-                      <div className="space-y-2">
-                        <Label htmlFor="risk-status">Status</Label>
-                        <Select
-                          value={formData.status as string}
-                          onValueChange={(value) => handleInputChange('status', value)}
+                      <div>
+                        <Label htmlFor="riskStatus">Status</Label>
+                        <Select 
+                          value={formData.status} 
+                          onValueChange={handleStatusChange}
                         >
-                          <SelectTrigger id="risk-status">
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select status" />
                           </SelectTrigger>
                           <SelectContent>
@@ -505,6 +487,17 @@ function RiskAssessment() {
                             ))}
                           </SelectContent>
                         </Select>
+                      </div>
+                      
+                      <div className="md:col-span-2">
+                        <Label htmlFor="riskMitigation">Mitigation Strategy</Label>
+                        <Textarea
+                          id="riskMitigation"
+                          placeholder="How will this risk be mitigated?"
+                          value={formData.mitigationStrategy}
+                          onChange={(e) => handleInputChange('mitigationStrategy', e.target.value)}
+                          rows={3}
+                        />
                         
                         <div className="mt-6 flex items-center">
                           <div className="text-sm mr-2">Risk Score:</div>
@@ -540,40 +533,29 @@ function RiskAssessment() {
                 )}
 
                 {/* Table of risks */}
-                {filteredRisks.length === 0 ? (
-                  <div className="text-center py-8 bg-white rounded-lg border">
-                    <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto mb-2" />
-                    <h3 className="text-lg font-medium">No risks found</h3>
-                    <p className="text-muted-foreground">
-                      {currentProduct.risks.length === 0 
-                        ? 'Start by adding a risk assessment for this product.' 
-                        : 'Adjust your filters to see more results.'}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="bg-white rounded-lg border overflow-hidden">
+                {filteredRisks.length > 0 ? (
+                  <div className="rounded-md border">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Risk</TableHead>
+                          <TableHead>Description</TableHead>
                           <TableHead>Type</TableHead>
-                          <TableHead>Owner</TableHead>
                           <TableHead>Likelihood</TableHead>
                           <TableHead>Impact</TableHead>
                           <TableHead>Score</TableHead>
-                          <TableHead>Status</TableHead>
                           <TableHead>Financial Impact</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Owner</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredRisks.map(risk => (
+                        {filteredRisks.map((risk) => (
                           <TableRow key={risk.id}>
-                            <TableCell className="font-medium max-w-[200px] truncate">
+                            <TableCell className="font-medium max-w-xs truncate">
                               {risk.description}
                             </TableCell>
                             <TableCell>{risk.type}</TableCell>
-                            <TableCell>{risk.owner}</TableCell>
                             <TableCell>{risk.likelihood}</TableCell>
                             <TableCell>{risk.impact}</TableCell>
                             <TableCell>
@@ -583,35 +565,26 @@ function RiskAssessment() {
                                 {risk.riskScore}
                               </span>
                             </TableCell>
+                            <TableCell>{formatCurrency(risk.financialImpact)}</TableCell>
                             <TableCell>
                               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                                 risk.status === 'Open' 
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : risk.status === 'Mitigated'
-                                    ? 'bg-green-100 text-green-800'
-                                    : risk.status === 'Closed'
-                                      ? 'bg-gray-100 text-gray-800'
-                                      : 'bg-purple-100 text-purple-800'
+                                  ? 'bg-blue-100 text-blue-800' 
+                                  : risk.status === 'Mitigated' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-gray-100 text-gray-800'
                               }`}>
                                 {risk.status}
                               </span>
                             </TableCell>
-                            <TableCell>{formatCurrency(risk.financialImpact)}</TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end space-x-2">
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={() => handleEdit(risk)}
-                                >
+                            <TableCell>{risk.owner}</TableCell>
+                            <TableCell>
+                              <div className="flex space-x-2">
+                                <Button variant="ghost" size="sm" onClick={() => handleEdit(risk)}>
                                   <Pencil className="h-4 w-4" />
                                 </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => handleDelete(risk.id)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                <Button variant="ghost" size="sm" onClick={() => handleDelete(risk.id)}>
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
                             </TableCell>
@@ -620,8 +593,14 @@ function RiskAssessment() {
                       </TableBody>
                     </Table>
                   </div>
+                ) : (
+                  <div className="text-center py-12 border rounded-md bg-gray-50">
+                    <p className="text-gray-500">No risks match your filters. Try adjusting your filter criteria or add a new risk.</p>
+                  </div>
                 )}
-              </>
+              </div>
+            ) : (
+              <RiskMatrix risks={currentProduct.risks} onSelectCell={handleMatrixCellClick} />
             )}
           </div>
         </CardContent>

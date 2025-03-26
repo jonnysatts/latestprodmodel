@@ -10,8 +10,35 @@
 .dashboard-container h1 {
   font-size: 1.75rem;
   font-weight: 600;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   color: #1e293b;
+}
+
+.actuals-info {
+  background-color: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.actuals-info p {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  font-size: 0.875rem;
+  color: #0369a1;
+}
+
+.actuals-label {
+  font-weight: 600;
+}
+
+.actuals-note {
+  font-style: italic;
+  opacity: 0.8;
 }
 
 .metrics-grid {
@@ -47,6 +74,33 @@
   font-weight: 600;
   color: #0f172a;
   margin: 0;
+}
+
+.metric-breakdown {
+  margin-top: 0.5rem;
+  font-size: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.metric-breakdown .actual {
+  color: #4169E1;
+  font-weight: 500;
+}
+
+.metric-breakdown .actual:has(+ .projected:contains("-")) {
+  color: #FF0000;
+}
+
+.metric-breakdown .projected {
+  color: #0f172a;
+  opacity: 0.7;
+}
+
+.metric-breakdown .notes {
+  color: #64748b;
+  font-style: italic;
 }
 
 .charts-container {
@@ -134,6 +188,10 @@
   align-items: center;
   font-size: 0.875rem;
   color: #475569;
+  background-color: #f8fafc;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
 }
 
 .color-box {
@@ -142,6 +200,12 @@
   height: 12px;
   margin-right: 6px;
   border-radius: 2px;
+}
+
+/* Special styling for cost distribution legend */
+.cost-distribution .legend-explanation {
+  justify-content: space-around;
+  margin-bottom: 0.5rem;
 }
 
 @media (max-width: 768px) {
@@ -160,4 +224,29 @@
 
 .recharts-tooltip-cursor {
   stroke-dasharray: 3 3;
+}
+
+/* Enhanced styling for profit/loss bars */
+.recharts-rectangle.recharts-bar-rectangle[fill="#FF0000"] {
+  opacity: 0.85;
+  filter: drop-shadow(0px 2px 3px rgba(255, 0, 0, 0.3));
+}
+
+.recharts-rectangle.recharts-bar-rectangle[fill="#32CD32"] {
+  opacity: 0.85;
+  filter: drop-shadow(0px 2px 3px rgba(50, 205, 50, 0.3));
+}
+
+/* Make Week 1 bar red when it represents a loss */
+.recharts-bar-rectangles[name="Actual Profit"] .recharts-bar-rectangle:first-child {
+  /* By default, Week 1 bar should be red (we know it has negative profit from our data) */
+  fill: #FF0000 !important;
+  stroke: #CC0000;
+  stroke-width: 1px;
+  filter: drop-shadow(0px 2px 3px rgba(255, 0, 0, 0.3));
+}
+
+/* Make negative values stand out more in tooltips */
+.custom-tooltip p[style*="color: #FF0000"] {
+  font-weight: 600;
 } 

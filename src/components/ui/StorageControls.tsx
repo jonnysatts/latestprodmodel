@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Save, BarChart, Wifi, WifiOff, AlertCircle, ArrowUpDown } from 'lucide-react';
 import { useStorage } from '../../contexts/StorageContext';
 import { useNetworkStatus } from '../../contexts/NetworkStatusContext';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip';

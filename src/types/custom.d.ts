@@ -2,7 +2,6 @@
 
 // Add declaration for lucide-react icons
 declare module 'lucide-react' {
-  import { FC, SVGProps } from 'react';
   
   export interface IconProps extends SVGProps<SVGSVGElement> {
     size?: string | number;
@@ -107,7 +106,6 @@ declare module './components/ui/error-boundary' {
 // Add module declarations for custom UI components
 declare module './ui/slider' {
   import { FC, HTMLAttributes } from 'react';
-  
   export interface SliderProps extends HTMLAttributes<HTMLDivElement> {
     min?: number;
     max?: number;

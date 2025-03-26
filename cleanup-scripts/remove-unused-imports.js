@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import glob from 'glob';
+import { glob } from 'glob';
 
 /**
  * Script to aggressively remove unused imports and variables:
@@ -19,8 +19,8 @@ const rootDir = path.resolve(__dirname, '..');
 const srcDir = path.join(rootDir, 'src');
 
 // Find all TypeScript/React files
-const findTsFiles = () => {
-  return glob.sync(`${srcDir}/**/*.{ts,tsx,js,jsx}`);
+const findTsFiles = async () => {
+  return await glob(`${srcDir}/**/*.{ts,tsx,js,jsx}`);
 };
 
 // Process files to remove unused imports and variables
@@ -92,7 +92,18 @@ const removeUnused = (filePath) => {
   }
 };
 
-console.log('Removing unused imports and variables...');
-const tsFiles = findTsFiles();
-tsFiles.forEach(removeUnused);
-console.log('Unused imports and variables removal completed!'); 
+// Main function
+const main = async () => {
+  console.log('Removing unused imports and variables...');
+  const tsFiles = await findTsFiles();
+  for (const file of tsFiles) {
+    removeUnused(file);
+  }
+  console.log('Unused imports and variables removal completed!');
+};
+
+// Run the main function
+main().catch(error => {
+  console.error('Error running script:', error);
+  process.exit(1);
+}); 

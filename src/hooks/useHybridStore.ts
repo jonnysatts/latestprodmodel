@@ -1,9 +1,7 @@
 // Stub implementation for hooks/useHybridStore.ts
 // This file provides a hybrid storage mechanism that works with local storage only
 
-import { useState, useEffect, useCallback } from 'react';
 import { getDb } from '../lib/firebase';
-
 // The primary localStorage key used by the main app
 const FORTRESS_PRODUCTS_KEY = 'fortress-products';
 

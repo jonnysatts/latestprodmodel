@@ -1,157 +1,103 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { doc, onSnapshot, Firestore } from 'firebase/firestore';
-import { getDb, isFirebaseInitialized } from '../lib/firebase';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-// Define the NetworkStatus type
-interface NetworkStatus {
+// Define the network status context shape
+interface NetworkStatusContextType {
   isOnline: boolean;
-  connectionType: string | null;
-  isConnectionPending: boolean;
+  connectionType: string; // 'wifi', 'cellular', 'unknown', etc.
+  lastOnlineAt: Date | null;
+  checkConnection: () => Promise<boolean>;
 }
 
-// Define the context with default values
-const NetworkStatusContext = createContext<NetworkStatus & {
-  checkConnection: () => void;
-}>({
+// Create the context with default values
+const NetworkStatusContext = createContext<NetworkStatusContextType>({
   isOnline: true,
-  connectionType: null,
-  isConnectionPending: false,
-  checkConnection: () => {}
+  connectionType: 'unknown',
+  lastOnlineAt: null,
+  checkConnection: async () => true,
 });
 
-// Hook to access the network status context
+// Hook to use the network status context
 export const useNetworkStatus = () => useContext(NetworkStatusContext);
 
-// Provider component for network status
-export const NetworkStatusProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // State for overall network status
+// Provider component
+interface NetworkStatusProviderProps {
+  children: ReactNode;
+}
+
+export function NetworkStatusProvider({ children }: NetworkStatusProviderProps): JSX.Element {
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
-  // State for connection type (e.g., 4g, wifi, etc.)
-  const [connectionType, setConnectionType] = useState<string | null>(null);
-  // State to track if we're still determining connection status
-  const [isConnectionPending, setIsConnectionPending] = useState<boolean>(true);
+  const [connectionType, setConnectionType] = useState<string>('unknown');
+  const [lastOnlineAt, setLastOnlineAt] = useState<Date | null>(new Date());
 
-  // Update connection type when available
-  useEffect(() => {
-    const updateConnectionType = () => {
-      if ('connection' in navigator && navigator.connection) {
-        // @ts-expect-error - Navigator connection API not fully typed
-        const { effectiveType } = navigator.connection;
-        setConnectionType(effectiveType);
-      }
-    };
-
-    // Get initial connection type
-    updateConnectionType();
-
-    // Listen for connection changes
-    // @ts-expect-error - Navigator connection API not fully typed
-    if ('connection' in navigator && navigator.connection?.addEventListener) {
-      // @ts-expect-error - Navigator connection API not fully typed
-      navigator.connection.addEventListener('change', updateConnectionType);
-      return () => {
-        // @ts-expect-error - Navigator connection API not fully typed
-        navigator.connection.removeEventListener('change', updateConnectionType);
-      };
+  // Function to check the current connection status
+  const checkConnection = async (): Promise<boolean> => {
+    // Simple check using navigator.onLine as a baseline
+    const online = navigator.onLine;
+    setIsOnline(online);
+    
+    if (online && lastOnlineAt === null) {
+      setLastOnlineAt(new Date());
     }
-  }, []);
+    
+    return online;
+  };
 
-  // Monitor navigator.onLine status
+  // Listen for online/offline events
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      // When we reconnect, we should re-check if Firestore is available
-      checkFirestoreConnection();
+      setLastOnlineAt(new Date());
     };
-
+    
     const handleOffline = () => {
       setIsOnline(false);
-      setIsConnectionPending(false);
     };
-
+    
+    // Detect connection type changes using the Network Information API (if available)
+    const detectConnectionType = () => {
+      // @ts-expect-error Connection property not in standard Navigator type
+      const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      
+      if (connection) {
+        setConnectionType(connection.effectiveType || connection.type || 'unknown');
+        
+        // Listen for connection changes
+        connection.addEventListener('change', detectConnectionType);
+      }
+    };
+    
+    // Set up event listeners
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
+    
+    // Initial detection
+    detectConnectionType();
+    checkConnection();
+    
+    // Cleanup listeners on unmount
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  // Function to check Firestore connection
-  const checkFirestoreConnection = () => {
-    setIsConnectionPending(true);
-    
-    // Only check Firestore if it's initialized
-    if (!isFirebaseInitialized()) {
-      setIsConnectionPending(false);
-      return;
-    }
-    
-    try {
-      // Attempt to connect to Firestore's special .info/connected document
-      // This will tell us if we can reach Firebase's servers
-      const db = getDb() as unknown as Firestore;
       
-      const unsubscribe = onSnapshot(
-        doc(db, '.info/connected'),
-        (snapshot) => {
-          const connected = snapshot.exists() && snapshot.data()?.connected === true;
-          
-          if (connected) {
-            setIsConnectionPending(false);
-          } else {
-            // If not connected after a timeout, consider it failed
-            setTimeout(() => {
-              setIsConnectionPending(false);
-            }, 5000);
-          }
-        },
-        (error) => {
-          console.error('Firestore connection error:', error);
-          setIsConnectionPending(false);
-        }
-      );
+      // @ts-expect-error Connection property not in standard Navigator type
+      const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (connection) {
+        connection.removeEventListener('change', detectConnectionType);
+      }
+    };
+  }, [lastOnlineAt]);
 
-      // Clean up the listener after a timeout
-      setTimeout(() => {
-        unsubscribe();
-      }, 10000);
-    } catch (error) {
-      console.error('Error checking Firestore connection:', error);
-      setIsConnectionPending(false);
-    }
-  };
-
-  // Initial check
-  useEffect(() => {
-    if (isOnline) {
-      checkFirestoreConnection();
-    }
-  }, []);
-
-  // Function to manually check connection
-  const checkConnection = () => {
-    if (navigator.onLine) {
-      checkFirestoreConnection();
-    } else {
-      setIsOnline(false);
-      setIsConnectionPending(false);
-    }
+  // Context value
+  const value = {
+    isOnline,
+    connectionType,
+    lastOnlineAt,
+    checkConnection,
   };
 
   return (
-    <NetworkStatusContext.Provider 
-      value={{ 
-        isOnline, 
-        connectionType, 
-        isConnectionPending, 
-        checkConnection 
-      }}
-    >
+    <NetworkStatusContext.Provider value={value}>
       {children}
     </NetworkStatusContext.Provider>
   );
-};
-
-export default NetworkStatusProvider; 
+} 

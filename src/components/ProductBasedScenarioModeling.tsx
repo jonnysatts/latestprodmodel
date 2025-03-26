@@ -3,14 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Slider } from './ui/slider';
-import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { PlusCircle, Trash2, Save, Copy, PieChart, BarChart, ArrowUpDown, Download } from 'lucide-react';
 import { 
-  PieChart as RechartsChart, 
-  Pie, 
   Cell, 
   ResponsiveContainer, 
   Tooltip, 
@@ -27,7 +23,6 @@ import { formatCurrency, formatPercent } from '../lib/utils';
 import { exportScenarioComparison } from '../lib/exportUtils';
 
 // Colors for charts
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 export default function ProductBasedScenarioModeling() {
   const { 

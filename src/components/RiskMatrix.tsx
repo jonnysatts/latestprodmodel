@@ -1,12 +1,10 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Download } from 'lucide-react';
-import type { RiskAssessment, LikelihoodLevel, ImpactLevel } from '../types';
 import { LIKELIHOOD_LEVELS, IMPACT_LEVELS } from '../types';
+import type { RiskAssessment, LikelihoodLevel, ImpactLevel } from '../types';
 import { formatCurrency } from '../lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Badge } from './ui/badge';
 
 interface RiskMatrixProps {
   risks: RiskAssessment[];
@@ -208,4 +206,4 @@ const RiskMatrix = ({ risks, onSelectCell }: RiskMatrixProps) => {
   );
 };
 
-export default RiskMatrix; 
+export default RiskMatrix;

@@ -1,5 +1,4 @@
 // React-specific type declarations
-import React from 'react';
 
 // Event types
 export interface ChangeEvent<T = Element> {

@@ -1,7 +1,6 @@
 import React from 'react';
 import { RecentlyViewed } from './ui/recently-viewed';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import useStore from '../store/useStore';
 
 interface RecentlyViewedContainerProps {
   onNavigateToProduct: (productId: string) => void;

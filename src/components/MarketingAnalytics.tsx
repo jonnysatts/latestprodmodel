@@ -3,26 +3,60 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
 import {
   TrendingUp, Info, ExternalLink, PieChart as PieChartIcon, 
-  ChevronDown, ChevronUp, Users, ArrowUpDown, DollarSign, BarChart as BarChartIcon
+  ChevronDown, ChevronUp, Users, ArrowUpDown, DollarSign, BarChart as BarChartIcon, ArrowUpRight
 } from 'lucide-react';
-import { formatCurrency, formatNumber } from '../lib/utils';
+import { formatCurrency, formatNumber, formatPercent, navigateToProductTab } from '../lib/utils';
 import useStore from '../store/useStore';
+import { useNavigate } from 'react-router-dom';
 
 // Import our custom types
-import type { Product, MarketingChannelItem, WeeklyActuals } from '../types';
+import type { Product, MarketingChannelItem, WeeklyActuals, MarketingChannelPerformance } from '../types';
+
+interface TooltipProps {
+  active?: boolean;
+  payload?: any[];
+  label?: string;
+}
+
+interface ChartDataItem {
+  name: string;
+  value: number;
+  color?: string;
+}
+
+interface TrendDataItem {
+  name: string;
+  spend: number;
+  conversions: number;
+  cac: number;
+}
+
+interface ChannelEffectiveness {
+  id: string;
+  name: string;
+  budget: number;
+  allocation: number;
+  conversionRate: number;
+  ctr: number;
+  roi: number;
+  color: string;
+  effectiveness: number;
+  hasActualData: boolean;
+}
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 export default function MarketingAnalytics() {
   const { products, currentProductId } = useStore();
   const [activeTab, setActiveTab] = useState('overview');
+  const navigate = useNavigate();
   
   // Get current product
   const currentProduct = products.find(p => p.info?.id === currentProductId);
@@ -554,7 +588,11 @@ export default function MarketingAnalytics() {
           <p className="text-gray-500 mb-4">No marketing channels configured</p>
           <Button 
             variant="outline" 
-            onClick={() => window.location.href = '/product/' + currentProductId + '/costs'}
+            onClick={() => {
+              // Navigate to costs tab
+              localStorage.setItem('activeTab', 'costs');
+              window.location.href = `/product/${currentProductId}`;
+            }}
           >
             Configure Marketing Channels
             <ExternalLink className="h-4 w-4 ml-2" />
@@ -595,7 +633,11 @@ export default function MarketingAnalytics() {
           <p className="text-gray-500 mb-4">No marketing channels configured</p>
           <Button 
             variant="outline" 
-            onClick={() => window.location.href = '/product/' + currentProductId + '/costs'}
+            onClick={() => {
+              // Navigate to costs tab
+              localStorage.setItem('activeTab', 'costs');
+              window.location.href = `/product/${currentProductId}`;
+            }}
           >
             Configure Marketing Channels
             <ExternalLink className="h-4 w-4 ml-2" />
@@ -1009,7 +1051,11 @@ export default function MarketingAnalytics() {
                     <p className="text-gray-500 mb-4">No marketing channels configured</p>
                     <Button 
                       variant="outline" 
-                      onClick={() => window.location.href = '/cost-forecast'}
+                      onClick={() => {
+                        // Navigate to costs tab
+                        localStorage.setItem('activeTab', 'costs');
+                        window.location.href = `/product/${currentProductId}`;
+                      }}
                     >
                       Configure in Cost Forecast
                       <ExternalLink className="h-4 w-4 ml-2" />

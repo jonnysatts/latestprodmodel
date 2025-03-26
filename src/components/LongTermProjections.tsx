@@ -16,7 +16,7 @@ import {
   Legend
 } from 'recharts';
 import useStore from '../store/useStore';
-import { formatCurrency, formatPercent, formatNumber } from '../lib/utils';
+import { formatCurrency, formatPercent } from '../lib/utils';
 
 interface MarketMetrics {
   totalAddressableMarket: number;
@@ -44,7 +44,7 @@ export default function LongTermProjections() {
     if (currentProduct?.marketMetrics) {
       setMarketMetrics(currentProduct.marketMetrics);
     }
-  }, [currentProduct?.info.id]);
+  }, [currentProduct?.marketMetrics]);
 
   if (!currentProduct) {
     return (
@@ -141,7 +141,7 @@ export default function LongTermProjections() {
                   min={0}
                   step={1000000}
                   value={marketMetrics.totalAddressableMarket}
-                  onValueChange={(value) => handleMarketMetricChange('totalAddressableMarket', Number(value))}
+                  onValueChange={(value: string | number) => handleMarketMetricChange('totalAddressableMarket', Number(value))}
                 />
                 <p className="text-sm text-gray-500 mt-1">
                   Total market value for your product category
@@ -155,7 +155,7 @@ export default function LongTermProjections() {
                   min={0}
                   step={1000000}
                   value={marketMetrics.servicableAddressableMarket}
-                  onValueChange={(value) => handleMarketMetricChange('servicableAddressableMarket', Number(value))}
+                  onValueChange={(value: string | number) => handleMarketMetricChange('servicableAddressableMarket', Number(value))}
                 />
                 <p className="text-sm text-gray-500 mt-1">
                   Market segment you can realistically target
@@ -169,7 +169,7 @@ export default function LongTermProjections() {
                   min={0}
                   step={1000000}
                   value={marketMetrics.servicableObtainableMarket}
-                  onValueChange={(value) => handleMarketMetricChange('servicableObtainableMarket', Number(value))}
+                  onValueChange={(value: string | number) => handleMarketMetricChange('servicableObtainableMarket', Number(value))}
                 />
                 <p className="text-sm text-gray-500 mt-1">
                   Market share you can capture
@@ -185,7 +185,7 @@ export default function LongTermProjections() {
                   min={0}
                   step={1}
                   value={marketMetrics.yearlyGrowthRate}
-                  onValueChange={(value) => handleMarketMetricChange('yearlyGrowthRate', Number(value))}
+                  onValueChange={(value: string | number) => handleMarketMetricChange('yearlyGrowthRate', Number(value))}
                 />
                 <p className="text-sm text-gray-500 mt-1">
                   Expected year-over-year revenue growth
@@ -199,7 +199,7 @@ export default function LongTermProjections() {
                   min={0}
                   step={1}
                   value={marketMetrics.costScalingRate}
-                  onValueChange={(value) => handleMarketMetricChange('costScalingRate', Number(value))}
+                  onValueChange={(value: string | number) => handleMarketMetricChange('costScalingRate', Number(value))}
                 />
                 <p className="text-sm text-gray-500 mt-1">
                   Expected year-over-year cost increase

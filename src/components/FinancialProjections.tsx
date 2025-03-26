@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import {
   LineChart,
@@ -18,7 +18,6 @@ import {
 } from 'recharts';
 import useStore from '../store/useStore';
 import { formatCurrency, formatNumber, formatPercent } from '../lib/utils';
-
 export default function FinancialProjections() {
   const { products, currentProductId } = useStore();
   const currentProduct = products.find(p => p.info.id === currentProductId);

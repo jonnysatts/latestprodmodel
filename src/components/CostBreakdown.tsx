@@ -17,7 +17,7 @@ export default function CostBreakdown() {
     if (currentProduct) {
       setCostMetrics(currentProduct.costMetrics || {});
     }
-  }, [currentProduct?.info.id]);
+  }, [currentProduct]);
 
   const handleCostMetricChange = (field: keyof CostMetrics, value: number | string) => {
     // Add console logging to debug

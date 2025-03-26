@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { devtools, persist } from 'zustand/middleware';
 import type { 
   Product, 
   RiskAssessment, 
@@ -7,7 +7,7 @@ import type {
   Scenario, 
   LikelihoodLevel, 
   ImpactLevel,
-  ScenarioModel 
+  ScenarioModel
 } from '../types';
 import { DEFAULT_GROWTH_METRICS, DEFAULT_REVENUE_METRICS, DEFAULT_COST_METRICS, DEFAULT_CUSTOMER_METRICS, DEFAULT_SEASONAL_ANALYSIS } from '../types';
 import type { 
@@ -16,9 +16,7 @@ import type {
   DocumentReference,
   DocumentData
 } from 'firebase/firestore';
-import type { StorageMode } from '../contexts/StorageContext';
-import { useCallback, useState } from 'react';
-import { persist } from 'zustand/middleware';
+import { StorageMode } from '../types/custom-types';
 
 // Collection names
 const PRODUCTS_COLLECTION = 'products';
@@ -247,30 +245,51 @@ const useStore = create<StoreState>()(
             // Clear the timeout since we loaded successfully
             clearTimeout(safetyTimer);
             
-            set({ 
-              products, 
-              scenarios,
-              isLoading: false
-            });
-            
-            // If we have a currentProductId in localStorage, use it
+            // Get the currentProductId from localStorage
             const currentId = localStorage.getItem('currentProductId');
+            console.log(`Found currentProductId in localStorage: ${currentId}`);
+            
             if (currentId && products.some(p => p.info.id === currentId)) {
-              set({ currentProductId: currentId });
+              // If we have a valid stored product ID, use it
+              console.log(`Using stored product ID: ${currentId}`);
+              set({ 
+                products, 
+                scenarios,
+                isLoading: false,
+                currentProductId: currentId
+              });
             } else if (products.length > 0) {
-              set({ currentProductId: products[0].info.id });
+              // If no valid stored ID but we have products, use the first one
+              const firstProductId = products[0].info.id;
+              console.log(`No valid stored product ID, using first product: ${firstProductId}`);
+              localStorage.setItem('currentProductId', firstProductId);
+              set({ 
+                products, 
+                scenarios,
+                isLoading: false,
+                currentProductId: firstProductId
+              });
+            } else {
+              // No products at all
+              console.log(`No products found in storage`);
+              set({ 
+                products, 
+                scenarios,
+                isLoading: false,
+                currentProductId: null
+              });
             }
           } catch (error) {
-            // Clear the timeout since we're handling the error
+            console.error('Error initializing store:', error);
+            // Clear the timeout
             clearTimeout(safetyTimer);
             
-            console.error('Error initializing store:', error);
             set({ 
-              error: error instanceof Error ? error.message : 'Failed to initialize store',
               isLoading: false,
-              // Initialize with empty arrays to ensure the UI can render
+              error: error instanceof Error ? error.message : 'Unknown error initializing store',
               products: [],
-              scenarios: []
+              scenarios: [],
+              currentProductId: null
             });
           }
         },
@@ -606,37 +625,47 @@ const useStore = create<StoreState>()(
         },
 
         setCurrentProduct: (productId: string | null) => {
-          set((state) => {
-            // Don't track if it's the same product or null
-            if (state.currentProductId === productId || productId === null) {
-              return { currentProductId: productId };
-            }
+          if (productId === null) {
+            console.log('Clearing current product');
+            localStorage.removeItem('currentProductId');
+            set({ currentProductId: null });
+            return;
+          }
+
+          const state = get();
+          const productExists = state.products.some(p => p.info.id === productId);
+          
+          if (productExists) {
+            console.log(`Setting current product to ${productId}`);
+            localStorage.setItem('currentProductId', productId);
             
+            // Update recently viewed products
             // Remove the product if it's already in recently viewed to avoid duplicates
             const filteredRecent = state.recentlyViewed.filter(id => id !== productId);
             
             // Add the new product ID to the beginning of the array and keep only the 5 most recent
-            return {
+            const updatedRecentlyViewed = [productId, ...filteredRecent].slice(0, 5);
+            console.log(`Updated recently viewed products: ${JSON.stringify(updatedRecentlyViewed)}`);
+            
+            set({ 
               currentProductId: productId,
-              recentlyViewed: [productId, ...filteredRecent].slice(0, 5)
-            };
-          });
-          
-          // Save to localStorage for persistence
-          if (productId) {
-            localStorage.setItem('currentProductId', productId);
+              recentlyViewed: updatedRecentlyViewed
+            });
           } else {
-            localStorage.removeItem('currentProductId');
+            console.error(`Cannot set current product to ${productId} - product not found`);
           }
         }
       }),
       {
-        name: 'fortress-financial-store',
-        partialize: (state) => {
-          // Update to include recentlyViewed in persistence
-          const { isLoading, error, ...rest } = state;
-          return rest;
-        },
+        name: 'fortress-financial-app-storage',  // Name for localStorage key
+        getStorage: () => localStorage,          // Use localStorage for persistence
+        // Only persist the essential data
+        partialize: (state) => ({
+          products: state.products,
+          scenarios: state.scenarios,
+          currentProductId: state.currentProductId,
+          recentlyViewed: state.recentlyViewed
+        })
       }
     )
   )
@@ -655,6 +684,34 @@ const calculateRiskScore = (
 
 // Initialize the store when it's first imported
 const store = useStore.getState();
-store.initializeStore();
+
+try {
+  // Force initialization on module load with max retry of 3 times
+  console.log("Initializing store on module load");
+  
+  let retries = 0;
+  const maxRetries = 3;
+  
+  const attemptInitialize = async () => {
+    try {
+      await store.initializeStore();
+      console.log("Store initialized successfully");
+    } catch (error) {
+      console.error("Error initializing store:", error);
+      
+      if (retries < maxRetries) {
+        retries++;
+        console.log(`Retrying store initialization (attempt ${retries}/${maxRetries})...`);
+        setTimeout(attemptInitialize, 500); // Wait 500ms before retrying
+      } else {
+        console.error("Failed to initialize store after maximum retries");
+      }
+    }
+  };
+  
+  attemptInitialize();
+} catch (error) {
+  console.error("Error in store initialization process:", error);
+}
 
 export default useStore;

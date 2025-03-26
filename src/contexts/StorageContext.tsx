@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { isFirebaseConfigAvailable, isFirebaseInitialized } from '../lib/firebase';
 import { useNotifications } from './NotificationContext';
 
 // Storage mode key for localStorage
@@ -34,7 +33,7 @@ interface StorageProviderProps {
   children: ReactNode;
 }
 
-export const StorageProvider: React.FC<StorageProviderProps> = ({ children }) => {
+export function StorageProvider({ children }: StorageProviderProps): JSX.Element {
   const [storageMode, setStorageModeState] = useState<StorageMode>('local');
   const [isCloudAvailable, setIsCloudAvailable] = useState<boolean>(false);
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
@@ -100,4 +99,4 @@ export const StorageProvider: React.FC<StorageProviderProps> = ({ children }) =>
       {children}
     </StorageContext.Provider>
   );
-}; 
+} 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ChangeEvent } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from '../types/react-types';
 import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -29,12 +29,12 @@ import {
   Loader2,
 } from 'lucide-react';
 import useStore from '../store/useStore';
-import { formatCurrency, formatNumber, formatPercent } from "../lib/utils";
 import type { 
   Product, 
   WeeklyActuals,
   MarketingChannelItem,
-  MarketingChannelPerformance
+  MarketingChannelPerformance,
+  ActualMetrics
 } from "../types";
 
 // Define a type for component props
@@ -42,19 +42,43 @@ interface ActualsTrackerProps {
   standalone?: boolean;
 }
 
-// Fix for the React.ChangeEvent typing
-type InputChangeEvent = React.ChangeEvent<HTMLInputElement>;
+// Define the type for input change events
+type InputChangeEvent = { target: { value: string } };
 
 // Add this to the type definitions section
 interface ChannelSpendState {
   [key: string]: string;
 }
 
+// Handle the case when spend is possibly empty or unknown type
+const parseSpend = (value: unknown): number => {
+  if (typeof value === 'string') {
+    return parseFloat(value || "0");
+  } else if (typeof value === 'number') {
+    return value;
+  }
+  return 0;
+};
+
 const ActualsTracker = ({ standalone = false }: ActualsTrackerProps) => {
   const { id } = useParams<{ id: string }>();
   const { products, updateProduct } = useStore();
   const [loading, setLoading] = useState(false);
   const [debugInfo, setDebugInfo] = useState<string>("");
+
+  // Formatting helpers
+  const formatNumber = (num: number): string => {
+    return new Intl.NumberFormat().format(num);
+  };
+  
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
 
   // State variables
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
@@ -91,7 +115,7 @@ const ActualsTracker = ({ standalone = false }: ActualsTrackerProps) => {
   // Helper to log debug info
   const logDebug = (info: string) => {
     console.log(info);
-    setDebugInfo(prev => `${prev}\n${info}`);
+    setDebugInfo((prev: string) => `${prev}\n${info}`);
   };
 
   // Get current product with improved debug info
@@ -142,6 +166,22 @@ const ActualsTracker = ({ standalone = false }: ActualsTrackerProps) => {
 
   const currentProduct = findCurrentProduct();
 
+  // Initialize actuals array and extract it from currentProduct
+  const actuals = useMemo(() => currentProduct?.actuals || [], [currentProduct]);
+
+  // Filter actuals based on selected year and month
+  const weeklyActuals = useMemo(() => {
+    return actuals.filter((actual: WeeklyActuals) => {
+      if (!actual.date) return false;
+      
+      const actualDate = new Date(actual.date);
+      return (
+        actualDate.getFullYear() === selectedYear && 
+        actualDate.getMonth() === selectedMonth
+      );
+    });
+  }, [actuals, selectedYear, selectedMonth]);
+
   // Initialize actuals if needed
   useEffect(() => {
     if (!currentProduct) {
@@ -180,61 +220,8 @@ const ActualsTracker = ({ standalone = false }: ActualsTrackerProps) => {
     }
   }, [currentProduct]);
 
-  // If no product is found or we're still loading
-  if (!currentProduct || loading) {
-    return (
-      <Card className={standalone ? "" : "mt-6"}>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-xl font-bold">Actuals Tracker</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center p-6 min-h-[200px]">
-            <div className="flex items-center mb-4">
-              <Loader2 className="h-6 w-6 animate-spin mr-2" />
-              <p className="text-gray-500">
-                {!currentProduct ? 'Loading product data...' : 'Initializing actuals data...'}
-              </p>
-            </div>
-            
-            {/* Debugging info - remove in production */}
-            <div className="text-xs text-left w-full mt-4 text-gray-500 bg-gray-100 p-2 rounded-md">
-              <pre className="whitespace-pre-wrap">
-                Products Count: {products.length}
-                Looking for ID: {id || 'N/A'}
-                {debugInfo}
-              </pre>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Ensure actuals is an array
-  const actuals = Array.isArray(currentProduct.actuals) ? currentProduct.actuals : [];
-
-  // Filter actuals by selected year and month
-  const weeklyActuals = actuals.filter((actual: WeeklyActuals) => {
-    try {
-      const date = new Date(actual.date);
-      return date.getFullYear() === selectedYear && date.getMonth() === selectedMonth;
-    } catch (e) {
-      console.error("Error filtering actual:", e, actual);
-      return false;
-    }
-  }).sort((a: WeeklyActuals, b: WeeklyActuals) => {
-    try {
-      const dateA = new Date(a.date);
-      const dateB = new Date(b.date);
-      return dateA.getTime() - dateB.getTime();
-    } catch (e) {
-      console.error("Error sorting actuals:", e, a, b);
-      return 0;
-    }
-  });
-
   // Calculate attendance
-  const calculateAttendance = (): number => {
+  const calculateAttendance = useCallback((): number => {
     const events = parseInt(newEvents || "0");
     const footTraffic = parseInt(newFootTraffic || "0");
     
@@ -242,12 +229,12 @@ const ActualsTracker = ({ standalone = false }: ActualsTrackerProps) => {
       return Math.round(footTraffic / events);
     }
     return 0;
-  };
+  }, [newEvents, newFootTraffic]);
 
   // Update attendance when events or traffic change
   useEffect(() => {
     setNewAttendance(calculateAttendance().toString());
-  }, [newEvents, newFootTraffic]);
+  }, [calculateAttendance]);
 
   // Total revenue calculation
   const calculateTotalRevenue = (): number => {
@@ -299,7 +286,7 @@ const ActualsTracker = ({ standalone = false }: ActualsTrackerProps) => {
     const channelPerformance: MarketingChannelPerformance[] = [];
     if (showChannelBreakdown) {
       Object.entries(channelSpend).forEach(([channelId, spendStr]) => {
-        const spend = parseFloat(spendStr || "0");
+        const spend = parseSpend(spendStr);
         if (spend > 0) {
           channelPerformance.push({
             channelId,
@@ -344,7 +331,7 @@ const ActualsTracker = ({ standalone = false }: ActualsTrackerProps) => {
     };
     
     // Create the ActualMetrics object to capture additional analytics
-    const newActualMetrics: unknown = {
+    const newActualMetrics: ActualMetrics = {
       id: crypto.randomUUID(),
       week: week,
       year: parseInt(format(new Date(newDate), 'yyyy')),
@@ -381,7 +368,7 @@ const ActualsTracker = ({ standalone = false }: ActualsTrackerProps) => {
     };
     
     // Add channel performance if available
-    if (channelPerformance.length > 0) {
+    if (channelPerformance.length > 0 && currentProduct) {
       // Update the product with both actuals and actualMetrics
       const updatedActuals = [...actuals, newActual];
       const updatedActualMetrics = [...(Array.isArray(currentProduct.actualMetrics) ? currentProduct.actualMetrics : []), newActualMetrics];
@@ -393,7 +380,7 @@ const ActualsTracker = ({ standalone = false }: ActualsTrackerProps) => {
         actuals: updatedActuals,
         actualMetrics: updatedActualMetrics
       });
-    } else {
+    } else if (currentProduct) {
       // Add the new actual to the current product without channel performance
       const updatedActuals = [...actuals, newActual];
       
@@ -434,9 +421,9 @@ const ActualsTracker = ({ standalone = false }: ActualsTrackerProps) => {
     setShowChannelBreakdown(false);
   };
 
-  // Handle editing an actual
+  // Handle saving an edited actual
   const handleSaveEdit = () => {
-    if (!editingActualId) return;
+    if (!currentProduct) return;
     
     const week = parseInt(newWeekNumber);
     const events = parseInt(newEvents || "0");
@@ -457,7 +444,7 @@ const ActualsTracker = ({ standalone = false }: ActualsTrackerProps) => {
     
     // Automatically calculate F&B COGS if we have F&B revenue
     let fbCogs = 0;
-    if (fbRevenue > 0 && currentProduct?.costMetrics?.fbCogPercentage) {
+    if (fbRevenue > 0 && currentProduct.costMetrics?.fbCogPercentage) {
       fbCogs = fbRevenue * (currentProduct.costMetrics.fbCogPercentage / 100);
       logDebug(`Auto-calculated F&B COGS of ${fbCogs} based on ${fbRevenue} revenue at ${currentProduct.costMetrics.fbCogPercentage}%`);
     }
@@ -536,6 +523,8 @@ const ActualsTracker = ({ standalone = false }: ActualsTrackerProps) => {
 
   // Handle deleting an actual
   const handleDeleteActual = (id: string) => {
+    if (!currentProduct) return;
+    
     // Filter out the actual to delete
     const updatedActuals = actuals.filter((actual: WeeklyActuals) => actual.id !== id);
     
@@ -577,19 +566,19 @@ const ActualsTracker = ({ standalone = false }: ActualsTrackerProps) => {
 
   // Calculate totals for the selected period
   const totals = {
-    revenue: weeklyActuals.reduce((sum, actual) => sum + (actual.revenue || 0), 0),
-    expenses: weeklyActuals.reduce((sum, actual) => sum + (actual.expenses || 0), 0),
-    conversions: weeklyActuals.reduce((sum, actual) => sum + (actual.conversions || 0), 0),
-    footTraffic: weeklyActuals.reduce((sum, actual) => sum + (actual.footTraffic || 0), 0),
-    events: weeklyActuals.reduce((sum, actual) => sum + (actual.numberOfEvents || 0), 0),
-    ticketRevenue: weeklyActuals.reduce((sum, actual) => sum + (actual.ticketRevenue || 0), 0),
-    fbRevenue: weeklyActuals.reduce((sum, actual) => sum + (actual.fbRevenue || 0), 0),
-    merchandiseRevenue: weeklyActuals.reduce((sum, actual) => sum + (actual.merchandiseRevenue || 0), 0),
-    digitalRevenue: weeklyActuals.reduce((sum, actual) => sum + (actual.digitalRevenue || 0), 0),
-    marketingCosts: weeklyActuals.reduce((sum, actual) => sum + (actual.marketingCosts || 0), 0),
-    staffingCosts: weeklyActuals.reduce((sum, actual) => sum + (actual.staffingCosts || 0), 0),
-    eventCosts: weeklyActuals.reduce((sum, actual) => sum + (actual.eventCosts || 0), 0),
-    additionalCosts: weeklyActuals.reduce((sum, actual) => sum + (actual.additionalCosts || 0), 0)
+    revenue: weeklyActuals.reduce((sum: number, actual: WeeklyActuals) => sum + (actual.revenue || 0), 0),
+    expenses: weeklyActuals.reduce((sum: number, actual: WeeklyActuals) => sum + (actual.expenses || 0), 0),
+    conversions: weeklyActuals.reduce((sum: number, actual: WeeklyActuals) => sum + (actual.conversions || 0), 0),
+    footTraffic: weeklyActuals.reduce((sum: number, actual: WeeklyActuals) => sum + (actual.footTraffic || 0), 0),
+    events: weeklyActuals.reduce((sum: number, actual: WeeklyActuals) => sum + (actual.numberOfEvents || 0), 0),
+    ticketRevenue: weeklyActuals.reduce((sum: number, actual: WeeklyActuals) => sum + (actual.ticketRevenue || 0), 0),
+    fbRevenue: weeklyActuals.reduce((sum: number, actual: WeeklyActuals) => sum + (actual.fbRevenue || 0), 0),
+    merchandiseRevenue: weeklyActuals.reduce((sum: number, actual: WeeklyActuals) => sum + (actual.merchandiseRevenue || 0), 0),
+    digitalRevenue: weeklyActuals.reduce((sum: number, actual: WeeklyActuals) => sum + (actual.digitalRevenue || 0), 0),
+    marketingCosts: weeklyActuals.reduce((sum: number, actual: WeeklyActuals) => sum + (actual.marketingCosts || 0), 0),
+    staffingCosts: weeklyActuals.reduce((sum: number, actual: WeeklyActuals) => sum + (actual.staffingCosts || 0), 0),
+    eventCosts: weeklyActuals.reduce((sum: number, actual: WeeklyActuals) => sum + (actual.eventCosts || 0), 0),
+    additionalCosts: weeklyActuals.reduce((sum: number, actual: WeeklyActuals) => sum + (actual.additionalCosts || 0), 0)
   };
   
   // Calculate profit and margin
@@ -924,7 +913,7 @@ const ActualsTracker = ({ standalone = false }: ActualsTrackerProps) => {
                             // Calculate total marketing spend from all channels
                             const updatedSpend = {...channelSpend, [channel.id]: newValue};
                             const total = Object.values(updatedSpend).reduce(
-                              (sum: number, val: string | unknown) => sum + (Number(val) || 0), 
+                              (sum: number, val: unknown) => sum + parseSpend(val), 
                               0
                             );
                             
@@ -947,7 +936,7 @@ const ActualsTracker = ({ standalone = false }: ActualsTrackerProps) => {
                     <span className="text-sm font-medium">
                       {formatCurrency(
                         Object.values(channelSpend).reduce(
-                          (sum: number, val: string | unknown) => sum + (Number(val) || 0), 
+                          (sum: number, val: unknown) => sum + parseSpend(val), 
                           0
                         )
                       )}

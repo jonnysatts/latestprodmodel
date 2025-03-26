@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -7,12 +6,27 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Progress } from './ui/progress';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { PlusCircle, Trash2, Save, Edit, Check, X, TrendingUp, BarChart2 } from 'lucide-react';
 import useStore from '../store/useStore';
-import { formatCurrency, formatNumber, formatPercent } from '../lib/utils';
-import * as db from '../lib/database';
+import { formatCurrency, formatNumber } from '../lib/utils';
 
-// KPI Types
+// Define the database service
+const db = {
+  getMarketingKPIs: async (productId: string) => {
+    // This would normally fetch from a database
+    return [];
+  },
+  addMarketingKPI: async (productId: string, kpi: any) => {
+    // This would normally add to a database
+    return kpi.id;
+  },
+  updateMarketingKPI: async (productId: string, kpiId: string, updates: any) => {
+    // This would normally update in a database
+  },
+  deleteMarketingKPI: async (productId: string, kpiId: string) => {
+    // This would normally delete from a database
+  }
+};
+
 interface KPI {
   id: string;
   name: string;

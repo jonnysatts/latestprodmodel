@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
-import { BarChart2, PieChart, TrendingUp, DollarSign, Users, ShoppingBag } from 'lucide-react';
 import { Breadcrumbs } from './ui/breadcrumb';
 import useStore from '../store/useStore';
 import {

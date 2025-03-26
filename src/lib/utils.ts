@@ -129,3 +129,17 @@ export function capitalize(str: string): string {
   if (!str) return '';
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
+
+/**
+ * Navigates to a specific tab in the product dashboard
+ * @param productId The ID of the product to navigate to
+ * @param tabId The tab ID to activate
+ */
+export function navigateToProductTab(productId: string, tabId: string) {
+  // Store the active tab in localStorage
+  localStorage.setItem('activeTab', tabId);
+  
+  // Navigate to the product page - the ProductDashboard component will read
+  // the activeTab from localStorage and set it appropriately
+  window.location.href = `/product/${productId}`;
+}

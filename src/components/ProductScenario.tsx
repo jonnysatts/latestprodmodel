@@ -21,7 +21,6 @@ import {
   Tooltip, Legend, ResponsiveContainer, Bar, BarChart
 } from 'recharts';
 import { exportScenarioComparison } from '../lib/exportUtils';
-import { downloadFile } from '../lib/exportUtils';
 import { v4 as uuidv4 } from 'uuid';
 
 const DEFAULT_MODIFIER_VALUE = 0; // 0% change

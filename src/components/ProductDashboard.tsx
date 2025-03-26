@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useParams, useNavigate } from '../types/react-types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
 import { 
@@ -13,10 +13,7 @@ import {
   BarChart2, 
   ChevronDown,
   Award,
-  FileText,
-  ChevronRight,
-  FileDown,
-  FileUp
+  FileText
 } from 'lucide-react';
 import { Spinner } from './ui/spinner';
 import { Breadcrumbs } from './ui/breadcrumb';
@@ -34,7 +31,6 @@ import RiskAssessment from './RiskAssessment';
 import ActualsTracker from './ActualsTracker';
 import SeasonalAnalysis from './SeasonalAnalysis';
 import ProductScenario from './ProductScenario';
-import ScenarioModeling from './ScenarioModeling';
 import RiskMatrix from './RiskMatrix';
 import MarketingAnalytics from './MarketingAnalytics';
 import MarketingApiIntegration from './MarketingApiIntegration';
@@ -54,36 +50,120 @@ import {
   exportVarianceAnalysis,
   exportMarketingChannelData
 } from '../lib/exportUtils';
-import { Product } from '../types/custom.d';
+import { Product } from '../types';
 
-export default function ProductDashboard({ currentProduct, updateProduct, isLoading }: { 
-  currentProduct: Product; 
-  updateProduct: (product: Product) => void;
-  isLoading: boolean;
-}) {
-  const { id } = useParams();
+export default function ProductDashboard() {
+  // Extract ID directly from the URL path
+  const pathId = window.location.pathname.split('/').filter(Boolean)[1];
+  const id = pathId || null;
+  
+  console.log(`Direct URL path ID extraction: ${id}`);
+  
   const navigate = useNavigate();
-  const { products, setCurrentProduct } = useStore();
+  const { products, updateProduct, setCurrentProduct, isLoading } = useStore();
   const [isExporting, setIsExporting] = useState(false);
   const [exportType, setExportType] = useState<ReportType>('financial');
   const [marketingTab, setMarketingTab] = useState<'analytics' | 'api' | 'budget' | 'kpi'>('analytics');
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const product = products.find(p => p.info.id === id);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-
-  useEffect(() => {
-    if (id) {
-      setCurrentProduct(id);
+  const [activeTab, setActiveTab] = useState(() => {
+    // Check if we have a saved tab in localStorage
+    const savedTab = localStorage.getItem('activeTab');
+    if (savedTab) {
+      // Clear it after reading so it doesn't persist
+      localStorage.removeItem('activeTab');
+      return savedTab;
     }
-  }, [id, setCurrentProduct]);
+    return 'dashboard';
+  });
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // All the export functions remain the same
-  // handleExportPDF, handleExportExcel, handleExportJSON functions...
+  // When ID changes, set it as the current product
+  useEffect(() => {
+    if (!id) {
+      console.log('ProductDashboard: No ID provided');
+      return;
+    }
+
+    console.log(`ProductDashboard: Setting current product to: ${id}`);
+    
+    // Force reload products if empty (might happen on direct URL access)
+    if (products.length === 0) {
+      console.log('No products found in store, attempting to load from localStorage');
+      // Try to get products directly from localStorage
+      try {
+        const storedProducts = localStorage.getItem('fortress-products');
+        if (storedProducts) {
+          const parsedProducts = JSON.parse(storedProducts);
+          console.log(`Found ${parsedProducts.length} products in localStorage`);
+          
+          // Check if the product with the requested ID exists
+          const productExists = parsedProducts.some((p: any) => p.info.id === id);
+          if (productExists) {
+            console.log(`Product with ID ${id} found in localStorage`);
+            // Force a page reload to reinitialize the app with proper state
+            window.location.reload();
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error accessing localStorage:', error);
+      }
+    }
+    
+    const productIds = products.map(p => p.info.id);
+    console.log(`Available product IDs: ${JSON.stringify(productIds)}`);
+    
+    // Find product that matches ID
+    const productExists = products.some(p => p.info.id === id);
+    console.log(`Product with ID ${id} exists in store: ${productExists}`);
+    
+    if (productExists) {
+      setCurrentProduct(id);
+      setError(null);
+      
+      // Save to localStorage for persistence between sessions
+      localStorage.setItem('currentProductId', id);
+      console.log(`Current product ID saved to localStorage: ${localStorage.getItem('currentProductId')}`);
+    } else {
+      console.error(`Product with ID ${id} not found in store`);
+      setError(`Product with ID ${id} not found`);
+    }
+  }, [id, setCurrentProduct, products]);
+
+  // Find product directly from the products array or localStorage
+  const product = useMemo(() => {
+    if (!id) return null;
+    
+    // First try to find product in the store
+    const storeProduct = products.find(p => p.info.id === id);
+    if (storeProduct) {
+      console.log('Found product in store');
+      return storeProduct;
+    }
+    
+    // If not found in store, try to get directly from localStorage
+    try {
+      console.log('Product not found in store, trying localStorage');
+      const storedProducts = localStorage.getItem('fortress-products');
+      if (storedProducts) {
+        const parsedProducts = JSON.parse(storedProducts);
+        const localProduct = parsedProducts.find((p: any) => p.info.id === id);
+        if (localProduct) {
+          console.log('Found product in localStorage');
+          return localProduct;
+        }
+      }
+    } catch (error) {
+      console.error('Error accessing localStorage:', error);
+    }
+    
+    return null;
+  }, [id, products]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      const target = event.target;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
       if (dropdownOpen && !target.closest('.dropdown-container')) {
         setDropdownOpen(false);
       }
@@ -95,11 +175,11 @@ export default function ProductDashboard({ currentProduct, updateProduct, isLoad
     };
   }, [dropdownOpen]);
 
-  const handleNavigateToProduct = (productId) => {
+  const handleNavigateToProduct = (productId: string) => {
     navigate(`/product/${productId}`);
   };
   
-  const handleQuickJump = (path) => {
+  const handleQuickJump = (path: string) => {
     navigate(path);
   };
   
@@ -121,6 +201,44 @@ export default function ProductDashboard({ currentProduct, updateProduct, isLoad
     }, 100);
   };
 
+  const handleExportPDF = async () => {
+    try {
+      setIsExporting(true);
+      setDropdownOpen(false);
+      const blob = await exportToPDF(product, exportType);
+      const fileName = `${product.info.name}_${exportType}_report_${new Date().toISOString().slice(0, 10)}.pdf`;
+      downloadFile(blob, fileName, 'application/pdf');
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportExcel = () => {
+    try {
+      setIsExporting(true);
+      setDropdownOpen(false);
+      exportFinancialData(product, { includeTimestamp: true });
+    } catch (error) {
+      console.error('Error exporting Excel:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportJSON = () => {
+    try {
+      setIsExporting(true);
+      setDropdownOpen(false);
+      exportToJSON(product, { includeTimestamp: true });
+    } catch (error) {
+      console.error('Error exporting JSON:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (!id) {
     return (
       <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -135,14 +253,34 @@ export default function ProductDashboard({ currentProduct, updateProduct, isLoad
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <h1 className="text-2xl font-bold text-red-800 mb-4">Error Loading Product</h1>
+            <p className="text-red-700 mb-6">{error}</p>
+            <div className="flex justify-center space-x-4">
+              <Button variant="outline" onClick={() => navigate('/')}>Return to Home</Button>
+              <Button onClick={() => window.location.reload()}>Reload Page</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!product) {
     return (
       <div className="min-h-screen bg-gray-50 p-4 md:p-8">
         <div className="max-w-6xl mx-auto">
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
             <h1 className="text-2xl font-bold text-yellow-800 mb-4">Product Not Found</h1>
-            <p className="text-yellow-700 mb-6">The requested product could not be found.</p>
-            <Button onClick={() => navigate('/')}>Return to Home</Button>
+            <p className="text-yellow-700 mb-6">The product with ID "{id}" could not be found or has been deleted.</p>
+            <div className="flex justify-center space-x-4">
+              <Button onClick={() => navigate('/')}>View All Products</Button>
+              <Button variant="outline" onClick={() => window.location.reload()}>Reload Page</Button>
+            </div>
           </div>
         </div>
       </div>
@@ -202,7 +340,30 @@ export default function ProductDashboard({ currentProduct, updateProduct, isLoad
               {dropdownOpen && (
                 <div className="absolute right-0 z-50 mt-2 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5">
                   <div className="py-1" role="menu" aria-orientation="vertical">
-                    {/* Dropdown content (PDF, Excel, JSON options) */}
+                    <button
+                      onClick={handleExportPDF}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 flex items-center"
+                      role="menuitem"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Export as PDF
+                    </button>
+                    <button
+                      onClick={handleExportExcel}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 flex items-center"
+                      role="menuitem"
+                    >
+                      <BarChart className="h-4 w-4 mr-2" />
+                      Export as Excel
+                    </button>
+                    <button
+                      onClick={handleExportJSON}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 flex items-center"
+                      role="menuitem"
+                    >
+                      <PieChart className="h-4 w-4 mr-2" />
+                      Export as JSON
+                    </button>
                   </div>
                 </div>
               )}
@@ -280,7 +441,7 @@ export default function ProductDashboard({ currentProduct, updateProduct, isLoad
 
               <TabsContent value="marketing">
                 <div className="space-y-4">
-                  <Tabs value={marketingTab} onValueChange={(value) => setMarketingTab(value)} className="w-full">
+                  <Tabs value={marketingTab} onValueChange={(value: 'analytics' | 'api' | 'budget' | 'kpi') => setMarketingTab(value)} className="w-full">
                     <TabsList className="grid grid-cols-4 w-full max-w-md mb-4">
                       <TabsTrigger value="analytics">
                         <BarChart2 className="h-4 w-4 mr-2" />

@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Slider } from './ui/slider';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { DollarSign, GripVertical, Save, RefreshCw } from 'lucide-react';

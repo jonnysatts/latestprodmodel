@@ -3,24 +3,118 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Switch } from './ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { Switch } from './ui/switch';
 import { Badge } from './ui/badge';
+import { Alert, AlertTitle, AlertDescription } from './ui/alert';
 import { Loader2, Check, X, RefreshCw, Download, ExternalLink } from 'lucide-react';
 import useStore from '../store/useStore';
-import { 
-  ApiConfig, 
-  MarketingPlatform, 
-  configureMarketingApi, 
-  fetchMarketingData,
-  getApiConfig,
-  listConfiguredApis,
-  saveApiConfigurations,
-  transformApiDataToChannelPerformance
-} from '../lib/marketingApi';
 import { formatCurrency, formatNumber, formatPercent } from '../lib/utils';
+import { uniqueId } from '../lib/utils';
+
+// Types for Marketing API
+export type MarketingPlatform = 'facebook' | 'google' | 'twitter' | 'linkedin' | 'tiktok' | 'custom';
+
+export interface ApiConfig {
+  platformName: string;
+  apiKey: string;
+  endpoint: string;
+  isActive: boolean;
+}
+
+export interface MarketingApiResponse {
+  success: boolean;
+  data?: {
+    metrics: Record<string, number>;
+  };
+  error?: string;
+}
+
+export interface ActualMetrics {
+  id: string;
+  week: number;
+  year: number;
+  revenue?: number;
+  marketingCost?: number;
+  channelPerformance?: Array<{
+    channelId: string;
+    spend: number;
+    impressions: number;
+    clicks: number;
+    conversions: number;
+    revenue: number;
+  }>;
+}
+
+// Mock implementation of API functions - using localStorage instead of Firebase
+const getApiConfig = (platform: MarketingPlatform): ApiConfig | null => {
+  try {
+    const configs = localStorage.getItem('marketingApiConfigs');
+    if (!configs) return null;
+    
+    const parsedConfigs = JSON.parse(configs) as Record<MarketingPlatform, ApiConfig>;
+    return parsedConfigs[platform] || null;
+  } catch (error) {
+    console.error('Error loading API config:', error);
+    return null;
+  }
+};
+
+const configureMarketingApi = (platform: MarketingPlatform, config: ApiConfig): void => {
+  try {
+    const configs = localStorage.getItem('marketingApiConfigs');
+    const parsedConfigs = configs ? JSON.parse(configs) : {};
+    
+    parsedConfigs[platform] = config;
+    localStorage.setItem('marketingApiConfigs', JSON.stringify(parsedConfigs));
+  } catch (error) {
+    console.error('Error saving API config:', error);
+  }
+};
+
+const saveApiConfigurations = (): void => {
+  // This is a no-op in the localStorage version
+  // Data is already saved in configureMarketingApi
+};
+
+const fetchMarketingData = async (
+  platform: MarketingPlatform, 
+  startDate: string, 
+  endDate: string
+): Promise<MarketingApiResponse> => {
+  // This is a mock implementation that returns dummy data
+  // In a real implementation, this would call the actual marketing APIs
+  return {
+    success: true,
+    data: {
+      metrics: {
+        spend: 1000,
+        impressions: 50000,
+        clicks: 1500,
+        conversions: 100,
+        revenue: 5000
+      }
+    }
+  };
+};
+
+const transformApiDataToChannelPerformance = (
+  platform: MarketingPlatform,
+  channelId: string,
+  metrics: Record<string, number> | undefined
+) => {
+  // Transform API data to our format
+  if (!metrics) return null;
+  
+  return {
+    channelId,
+    spend: metrics.spend || 0,
+    impressions: metrics.impressions || 0,
+    clicks: metrics.clicks || 0,
+    conversions: metrics.conversions || 0,
+    revenue: metrics.revenue || 0
+  };
+};
 
 export default function MarketingApiIntegration() {
   const { products, currentProductId, updateProduct } = useStore();
@@ -29,7 +123,7 @@ export default function MarketingApiIntegration() {
   const [importStatus, setImportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
   const [startDate, setStartDate] = useState(
-    new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // Default to 30 days ago
   );
   const [endDate, setEndDate] = useState(
     new Date().toISOString().split('T')[0]
@@ -104,7 +198,7 @@ export default function MarketingApiIntegration() {
   }, [activeTab]);
   
   // Get current product
-  const currentProduct = products.find(p => p.info.id === currentProductId);
+  const currentProduct = products?.find(p => p.info?.id === currentProductId);
   
   if (!currentProduct) {
     return (
@@ -142,7 +236,7 @@ export default function MarketingApiIntegration() {
   
   // Handle form input changes
   const handleInputChange = (field: keyof ApiConfig, value: string | boolean) => {
-    setFormConfig(prev => ({
+    setFormConfig((prev: ApiConfig) => ({
       ...prev,
       [field]: value
     }));
@@ -154,7 +248,7 @@ export default function MarketingApiIntegration() {
     saveApiConfigurations();
     
     // Update local state
-    setApiConfigs(prev => ({
+    setApiConfigs((prev: Record<MarketingPlatform, ApiConfig | null>) => ({
       ...prev,
       [activeTab]: formConfig
     }));
@@ -182,7 +276,7 @@ export default function MarketingApiIntegration() {
       // Find matching marketing channel in the product
       const marketingChannels = currentProduct.costMetrics?.marketing?.channels || [];
       const matchingChannel = marketingChannels.find(
-        channel => channel.name.toLowerCase().includes(activeTab.toLowerCase())
+        channel => channel.name?.toLowerCase().includes(activeTab.toLowerCase())
       );
       
       if (!matchingChannel) {
@@ -193,17 +287,21 @@ export default function MarketingApiIntegration() {
       const channelPerformance = transformApiDataToChannelPerformance(
         activeTab,
         matchingChannel.id,
-        response.data.metrics
+        response.data?.metrics
       );
+      
+      if (!channelPerformance) {
+        throw new Error('Failed to transform API data');
+      }
       
       // Find the latest week in actuals
       const latestWeek = Math.max(
-        ...currentProduct.actualMetrics.map(metric => metric.week),
+        ...(currentProduct.actualMetrics || []).map(metric => metric.week),
         0
       );
       
       // Update the latest week's channel performance
-      const updatedActualMetrics = [...currentProduct.actualMetrics];
+      const updatedActualMetrics = [...(currentProduct.actualMetrics || [])];
       const latestWeekIndex = updatedActualMetrics.findIndex(metric => metric.week === latestWeek);
       
       if (latestWeekIndex >= 0) {
@@ -234,12 +332,15 @@ export default function MarketingApiIntegration() {
         });
       } else {
         // Create first week
-        updatedActualMetrics.push({
+        const newActualMetric: ActualMetrics = {
+          id: uniqueId('actuals-'),
           week: 1,
+          year: new Date().getFullYear(),
           revenue: channelPerformance.revenue,
           marketingCost: channelPerformance.spend,
           channelPerformance: [channelPerformance]
-        });
+        };
+        updatedActualMetrics.push(newActualMetric);
       }
       
       // Update product
@@ -274,7 +375,7 @@ export default function MarketingApiIntegration() {
         </p>
       </div>
       
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as MarketingPlatform)}>
+      <Tabs value={activeTab} onValueChange={(value: string) => setActiveTab(value as MarketingPlatform)}>
         <TabsList className="grid grid-cols-6">
           <TabsTrigger value="facebook">Facebook</TabsTrigger>
           <TabsTrigger value="google">Google</TabsTrigger>
@@ -301,7 +402,7 @@ export default function MarketingApiIntegration() {
                       id={`${platform}-api-key`}
                       type="password"
                       value={formConfig.apiKey}
-                      onChange={(e) => handleInputChange('apiKey', e.target.value)}
+                      onChange={(e: { target: { value: string } }) => handleInputChange('apiKey', e.target.value)}
                       placeholder="Enter your API key"
                     />
                   </div>
@@ -311,7 +412,7 @@ export default function MarketingApiIntegration() {
                     <Input
                       id={`${platform}-endpoint`}
                       value={formConfig.endpoint}
-                      onChange={(e) => handleInputChange('endpoint', e.target.value)}
+                      onChange={(e: { target: { value: string } }) => handleInputChange('endpoint', e.target.value)}
                       placeholder="API endpoint URL"
                     />
                   </div>
@@ -321,7 +422,7 @@ export default function MarketingApiIntegration() {
                   <Switch
                     id={`${platform}-active`}
                     checked={formConfig.isActive}
-                    onCheckedChange={(checked) => handleInputChange('isActive', checked)}
+                    onCheckedChange={(checked: boolean) => handleInputChange('isActive', checked)}
                   />
                   <Label htmlFor={`${platform}-active`}>Active</Label>
                 </div>
@@ -332,7 +433,7 @@ export default function MarketingApiIntegration() {
                     <Input
                       id="custom-platform-name"
                       value={formConfig.platformName}
-                      onChange={(e) => handleInputChange('platformName', e.target.value)}
+                      onChange={(e: { target: { value: string } }) => handleInputChange('platformName', e.target.value)}
                       placeholder="Custom platform name"
                     />
                   </div>
@@ -344,9 +445,9 @@ export default function MarketingApiIntegration() {
                 </Button>
                 
                 <div className="flex items-center space-x-2">
-                  <Badge variant={apiConfigs[platform] ? "default" : "outline"}>
+                  <div className={apiConfigs[platform] ? "bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded" : "bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded"}>
                     {apiConfigs[platform] ? "Configured" : "Not Configured"}
-                  </Badge>
+                  </div>
                 </div>
               </CardFooter>
             </Card>
@@ -367,7 +468,7 @@ export default function MarketingApiIntegration() {
                         id={`${platform}-start-date`}
                         type="date"
                         value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
+                        onChange={(e: { target: { value: string } }) => setStartDate(e.target.value)}
                       />
                     </div>
                     
@@ -377,7 +478,7 @@ export default function MarketingApiIntegration() {
                         id={`${platform}-end-date`}
                         type="date"
                         value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
+                        onChange={(e: { target: { value: string } }) => setEndDate(e.target.value)}
                       />
                     </div>
                   </div>
@@ -407,16 +508,26 @@ export default function MarketingApiIntegration() {
       </Tabs>
       
       {importStatus === 'success' && (
-        <Alert variant="success" className="mt-4">
-          <AlertTitle>Success</AlertTitle>
-          <AlertDescription>{statusMessage}</AlertDescription>
+        <Alert className="mt-4 bg-green-50 text-green-800 border-green-200">
+          <div className="flex">
+            <Check className="h-5 w-5 mr-2" />
+            <div>
+              <h5 className="font-medium">Success</h5>
+              <p>{statusMessage}</p>
+            </div>
+          </div>
         </Alert>
       )}
       
       {importStatus === 'error' && (
-        <Alert variant="destructive" className="mt-4">
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{statusMessage}</AlertDescription>
+        <Alert className="mt-4 bg-red-50 text-red-800 border-red-200">
+          <div className="flex">
+            <X className="h-5 w-5 mr-2" />
+            <div>
+              <h5 className="font-medium">Error</h5>
+              <p>{statusMessage}</p>
+            </div>
+          </div>
         </Alert>
       )}
       
@@ -425,23 +536,21 @@ export default function MarketingApiIntegration() {
         <div className="grid grid-cols-3 gap-4">
           {Object.entries(apiConfigs).map(([platform, config]) => {
             if (!config) return null;
+            const typedConfig = config as ApiConfig;
             return (
               <Card key={platform}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{config.platformName}</CardTitle>
+                  <CardTitle className="text-base">{typedConfig.platformName}</CardTitle>
                 </CardHeader>
                 <CardContent className="pb-2">
-                  <p className="text-sm truncate">{config.endpoint}</p>
-                  <Badge 
-                    variant={config.isActive ? "success" : "secondary"}
-                    className="mt-2"
-                  >
-                    {config.isActive ? "Active" : "Inactive"}
-                  </Badge>
+                  <p className="text-sm truncate">{typedConfig.endpoint}</p>
+                  <div className={typedConfig.isActive ? "bg-green-100 text-green-800 text-xs font-medium mt-2 px-2.5 py-0.5 rounded" : "bg-gray-100 text-gray-800 text-xs font-medium mt-2 px-2.5 py-0.5 rounded"}>
+                    {typedConfig.isActive ? "Active" : "Inactive"}
+                  </div>
                 </CardContent>
                 <CardFooter className="pt-0">
                   <Button variant="ghost" size="sm" asChild>
-                    <a href={config.endpoint} target="_blank" rel="noopener noreferrer">
+                    <a href={typedConfig.endpoint} target="_blank" rel="noopener noreferrer">
                       <ExternalLink className="h-4 w-4 mr-1" />
                       Visit
                     </a>

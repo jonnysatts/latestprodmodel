@@ -1,5 +1,4 @@
 import React, { useRef, useLayoutEffect, useEffect } from 'react';
-import { cn } from '../lib/utils';
 
 interface IsolatedInputProps {
   value?: string | number;

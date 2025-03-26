@@ -10,7 +10,6 @@ import { PlusCircle, Trash2, Save, PieChart, Edit, ChevronDown, ChevronUp, Plus,
 import { Slider } from './ui/slider';
 import { PieChart as RechartsChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import useStore from '../store/useStore';
-import { formatCurrency, formatPercent } from '../lib/utils';
 import type { Scenario, ScenarioParameter, VariableSensitivity } from '../types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 

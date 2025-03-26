@@ -1,62 +1,55 @@
-import { useState, useCallback, useEffect } from 'react';
-import { type StorageMode } from '../contexts/StorageContext';
-import { useLocalStore } from './useLocalStore';
-import { getDb, initializeFirebase, isFirebaseInitialized } from '../lib/firebase';
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  addDoc,
-  Firestore,
-} from 'firebase/firestore';
-import type { Scenario, Product, WeeklyActuals } from './useLocalStore';
 import { create } from 'zustand';
 
-// Collection names for Firebase
-const SCENARIOS_COLLECTION = 'scenarios';
-const PRODUCTS_COLLECTION = 'products';
+// Define a type for the store state
+interface LocalStoreState {
+  data: Record<string, unknown>;
+  isLoaded: boolean;
+  initialize: () => Promise<void>;
+  saveData: (newData: Record<string, unknown>) => void;
+  generateId: () => string;
+}
 
 /**
- * A hybrid store hook that can use either Firebase or local storage
- * based on the user's preference.
+ * A local storage-based store hook
  * 
- * This provides a unified interface regardless of the storage backend.
+ * This provides persistent storage for application data using localStorage.
  */
-const useHybridStore = create((set) => ({
+const useLocalStore = create<LocalStoreState>((set) => ({
   data: {},
   isLoaded: false,
   
   // Initialize data from localStorage
   initialize: async () => {
     try {
-      const savedData = localStorage.getItem('hybrid-store');
+      const savedData = localStorage.getItem('local-store');
       if (savedData) {
         set({ data: JSON.parse(savedData), isLoaded: true });
       } else {
         set({ data: {}, isLoaded: true });
       }
     } catch (error) {
-      console.error('Error initializing hybrid store:', error);
+      console.error('Error initializing local store:', error);
       set({ data: {}, isLoaded: true });
     }
   },
   
   // Save data to localStorage
-  saveData: (newData) => {
-    set((state) => {
+  saveData: (newData: Record<string, unknown>) => {
+    set((state: LocalStoreState) => {
       const updatedData = { ...state.data, ...newData };
       try {
-        localStorage.setItem('hybrid-store', JSON.stringify(updatedData));
+        localStorage.setItem('local-store', JSON.stringify(updatedData));
       } catch (error) {
         console.error('Error saving to localStorage:', error);
       }
       return { data: updatedData };
     });
+  },
+  
+  // Generate unique ID (to replace Firebase IDs)
+  generateId: () => {
+    return Date.now().toString(36) + Math.random().toString(36).substring(2);
   }
 }));
 
-export default useHybridStore; 
+export default useLocalStore; 

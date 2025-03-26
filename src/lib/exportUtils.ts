@@ -3,10 +3,22 @@
  * Functions for exporting data in various formats (CSV, PDF, Excel)
  */
 
-import { formatCurrency, formatNumber, formatPercent } from './utils';
+import { formatCurrency as formatCurrencyBase, formatNumber as formatNumberBase, formatPercent as formatPercentBase } from './utils';
 import { generateDashboardPDF } from './generatePDF';
 import { generateMarketingPDF } from './generateMarketingPDF';
 import type { Product, WeeklyProjection, ActualMetrics, MarketingChannelPerformance } from '../types';
+
+// Wrapper functions to handle unknown values
+const formatCurrency = (value: unknown) => formatCurrencyBase(Number(value) || 0);
+const formatNumber = (value: unknown) => formatNumberBase(Number(value) || 0);
+const formatPercent = (value: unknown) => formatPercentBase(Number(value) || 0);
+
+// Type for column definitions
+interface Column {
+  key: string;
+  label: string;
+  format?: (value: unknown) => string;
+}
 
 interface ExportOptions {
   fileName?: string;
@@ -171,9 +183,9 @@ export function exportWeeklyProjections(
   weeklyProjections: WeeklyProjection[],
   options: ExportOptions = {}
 ): void {
-  const columns = [
+  const columns: Column[] = [
     { key: 'week', label: 'Week' },
-    { key: 'numberOfEvents', label: 'Events' },
+    { key: 'numberOfEvents', label: 'Events', format: formatNumber },
     { key: 'averageEventAttendance', label: 'Avg Attendance', format: formatNumber },
     { key: 'footTraffic', label: 'Total Attendance', format: formatNumber },
     { key: 'ticketRevenue', label: 'Ticket Revenue', format: formatCurrency },
@@ -201,10 +213,10 @@ export function exportActualMetrics(
   actualMetrics: ActualMetrics[],
   options: ExportOptions = {}
 ): void {
-  const columns = [
+  const columns: Column[] = [
     { key: 'week', label: 'Week' },
     { key: 'date', label: 'Date' },
-    { key: 'numberOfEvents', label: 'Events' },
+    { key: 'numberOfEvents', label: 'Events', format: formatNumber },
     { key: 'averageEventAttendance', label: 'Avg Attendance', format: formatNumber },
     { key: 'footTraffic', label: 'Total Attendance', format: formatNumber },
     { key: 'ticketRevenue', label: 'Ticket Revenue', format: formatCurrency },
@@ -251,46 +263,40 @@ export function exportRevenueBreakdown(
       actual_fb: actual?.fbRevenue || 0,
       variance_fb: (actual?.fbRevenue || 0) - week.fbRevenue,
       
-      projected_merchandise: week.merchandiseRevenue,
-      actual_merchandise: actual?.merchandiseRevenue || 0,
-      variance_merchandise: (actual?.merchandiseRevenue || 0) - week.merchandiseRevenue,
+      projected_merch: week.merchandiseRevenue,
+      actual_merch: actual?.merchandiseRevenue || 0,
+      variance_merch: (actual?.merchandiseRevenue || 0) - week.merchandiseRevenue,
       
       projected_digital: week.digitalRevenue,
       actual_digital: actual?.digitalRevenue || 0,
       variance_digital: (actual?.digitalRevenue || 0) - week.digitalRevenue,
       
-      projected_total: week.totalRevenue,
-      actual_total: actual?.totalRevenue || 0,
-      variance_total: (actual?.totalRevenue || 0) - week.totalRevenue,
-      
-      variance_percentage: week.totalRevenue > 0 
-        ? (((actual?.totalRevenue || 0) - week.totalRevenue) / week.totalRevenue) * 100 
-        : 0
+      projected_total: week.ticketRevenue + week.fbRevenue + week.merchandiseRevenue + week.digitalRevenue,
+      actual_total: (actual?.ticketRevenue || 0) + (actual?.fbRevenue || 0) + 
+                   (actual?.merchandiseRevenue || 0) + (actual?.digitalRevenue || 0),
+      variance_total: ((actual?.ticketRevenue || 0) + (actual?.fbRevenue || 0) + 
+                      (actual?.merchandiseRevenue || 0) + (actual?.digitalRevenue || 0)) -
+                     (week.ticketRevenue + week.fbRevenue + week.merchandiseRevenue + week.digitalRevenue)
     };
   });
   
-  const columns = [
+  const columns: Column[] = [
     { key: 'week', label: 'Week' },
     { key: 'projected_ticket', label: 'Projected Ticket Revenue', format: formatCurrency },
     { key: 'actual_ticket', label: 'Actual Ticket Revenue', format: formatCurrency },
-    { key: 'variance_ticket', label: 'Variance (Ticket)', format: formatCurrency },
-    
+    { key: 'variance_ticket', label: 'Ticket Revenue Variance', format: formatCurrency },
     { key: 'projected_fb', label: 'Projected F&B Revenue', format: formatCurrency },
     { key: 'actual_fb', label: 'Actual F&B Revenue', format: formatCurrency },
-    { key: 'variance_fb', label: 'Variance (F&B)', format: formatCurrency },
-    
-    { key: 'projected_merchandise', label: 'Projected Merchandise Revenue', format: formatCurrency },
-    { key: 'actual_merchandise', label: 'Actual Merchandise Revenue', format: formatCurrency },
-    { key: 'variance_merchandise', label: 'Variance (Merchandise)', format: formatCurrency },
-    
+    { key: 'variance_fb', label: 'F&B Revenue Variance', format: formatCurrency },
+    { key: 'projected_merch', label: 'Projected Merchandise Revenue', format: formatCurrency },
+    { key: 'actual_merch', label: 'Actual Merchandise Revenue', format: formatCurrency },
+    { key: 'variance_merch', label: 'Merchandise Revenue Variance', format: formatCurrency },
     { key: 'projected_digital', label: 'Projected Digital Revenue', format: formatCurrency },
     { key: 'actual_digital', label: 'Actual Digital Revenue', format: formatCurrency },
-    { key: 'variance_digital', label: 'Variance (Digital)', format: formatCurrency },
-    
+    { key: 'variance_digital', label: 'Digital Revenue Variance', format: formatCurrency },
     { key: 'projected_total', label: 'Projected Total Revenue', format: formatCurrency },
     { key: 'actual_total', label: 'Actual Total Revenue', format: formatCurrency },
-    { key: 'variance_total', label: 'Variance (Total)', format: formatCurrency },
-    { key: 'variance_percentage', label: 'Variance %', format: (v: number) => v.toFixed(2) + '%' }
+    { key: 'variance_total', label: 'Total Revenue Variance', format: formatCurrency }
   ];
   
   exportForExcel(revenueData, columns, options);
@@ -341,7 +347,7 @@ export function exportCostAnalysis(
     };
   });
   
-  const columns = [
+  const columns: Column[] = [
     { key: 'week', label: 'Week' },
     { key: 'projected_marketing', label: 'Projected Marketing Costs', format: formatCurrency },
     { key: 'actual_marketing', label: 'Actual Marketing Costs', format: formatCurrency },
@@ -366,10 +372,10 @@ export function exportCostAnalysis(
     { key: 'projected_total', label: 'Projected Total Costs', format: formatCurrency },
     { key: 'actual_total', label: 'Actual Total Costs', format: formatCurrency },
     { key: 'variance_total', label: 'Variance (Total)', format: formatCurrency },
-    { key: 'variance_percentage', label: 'Variance %', format: (v: number) => v.toFixed(2) + '%' }
+    { key: 'variance_percentage', label: 'Variance %', format: (v: unknown) => `${Number(v).toFixed(2)}%` }
   ];
   
-  exportForExcel(costData, columns, options);
+  exportForExcel(costData as Record<string, any>[], columns, options);
 }
 
 /**
@@ -417,30 +423,30 @@ export function exportVarianceAnalysis(
     };
   });
   
-  const columns = [
+  const columns: Column[] = [
     { key: 'week', label: 'Week' },
     { key: 'projected_revenue', label: 'Projected Revenue', format: formatCurrency },
     { key: 'actual_revenue', label: 'Actual Revenue', format: formatCurrency },
     { key: 'revenue_variance', label: 'Variance ($)', format: formatCurrency },
-    { key: 'revenue_variance_pct', label: 'Variance (%)', format: (v: number) => v.toFixed(2) + '%' },
+    { key: 'revenue_variance_pct', label: 'Variance (%)', format: (v: unknown) => `${Number(v).toFixed(2)}%` },
     
     { key: 'projected_costs', label: 'Projected Costs', format: formatCurrency },
     { key: 'actual_costs', label: 'Actual Costs', format: formatCurrency },
     { key: 'costs_variance', label: 'Variance ($)', format: formatCurrency },
-    { key: 'costs_variance_pct', label: 'Variance (%)', format: (v: number) => v.toFixed(2) + '%' },
+    { key: 'costs_variance_pct', label: 'Variance (%)', format: (v: unknown) => `${Number(v).toFixed(2)}%` },
     
     { key: 'projected_profit', label: 'Projected Profit', format: formatCurrency },
     { key: 'actual_profit', label: 'Actual Profit', format: formatCurrency },
     { key: 'profit_variance', label: 'Variance ($)', format: formatCurrency },
-    { key: 'profit_variance_pct', label: 'Variance (%)', format: (v: number) => v.toFixed(2) + '%' },
+    { key: 'profit_variance_pct', label: 'Variance (%)', format: (v: unknown) => `${Number(v).toFixed(2)}%` },
     
     { key: 'projected_attendance', label: 'Projected Attendance', format: formatNumber },
     { key: 'actual_attendance', label: 'Actual Attendance', format: formatNumber },
     { key: 'attendance_variance', label: 'Variance (#)', format: formatNumber },
-    { key: 'attendance_variance_pct', label: 'Variance (%)', format: (v: number) => v.toFixed(2) + '%' }
+    { key: 'attendance_variance_pct', label: 'Variance (%)', format: (v: unknown) => `${Number(v).toFixed(2)}%` }
   ];
   
-  exportForExcel(varianceData, columns, options);
+  exportForExcel(varianceData as Record<string, any>[], columns, options);
 }
 
 /**
@@ -451,7 +457,7 @@ export function exportMarketingChannelData(
   options: ExportOptions = {}
 ): void {
   // Flatten channel performance data from all weeks
-  const allChannelData: unknown[] = [];
+  const allChannelData: Record<string, any>[] = [];
   
   actualMetrics.forEach(week => {
     if (week.channelPerformance && week.channelPerformance.length > 0) {
@@ -480,7 +486,7 @@ export function exportMarketingChannelData(
     return;
   }
   
-  const columns = [
+  const columns: Column[] = [
     { key: 'week', label: 'Week' },
     { key: 'date', label: 'Date' },
     { key: 'channelId', label: 'Channel' },
@@ -489,11 +495,11 @@ export function exportMarketingChannelData(
     { key: 'impressions', label: 'Impressions', format: formatNumber },
     { key: 'clicks', label: 'Clicks', format: formatNumber },
     { key: 'conversions', label: 'Conversions', format: formatNumber },
-    { key: 'ctr', label: 'CTR (%)', format: (v: number) => v.toFixed(2) + '%' },
-    { key: 'conversionRate', label: 'Conversion Rate (%)', format: (v: number) => v.toFixed(2) + '%' },
+    { key: 'ctr', label: 'CTR (%)', format: (v: unknown) => `${Number(v).toFixed(2)}%` },
+    { key: 'conversionRate', label: 'Conversion Rate (%)', format: (v: unknown) => `${Number(v).toFixed(2)}%` },
     { key: 'cpc', label: 'Cost per Click', format: formatCurrency },
     { key: 'cpa', label: 'Cost per Acquisition', format: formatCurrency },
-    { key: 'roi', label: 'ROI (%)', format: (v: number) => v.toFixed(2) + '%' }
+    { key: 'roi', label: 'ROI (%)', format: (v: unknown) => `${Number(v).toFixed(2)}%` }
   ];
   
   exportForExcel(allChannelData, columns, options);
@@ -538,26 +544,32 @@ export async function exportToPDF(
 /**
  * Export marketing performance data as CSV
  */
-export function exportMarketingPerformance(channelData: unknown[], timeframe: string): void {
-  const columns = [
+export function exportMarketingPerformance(channelData: Record<string, any>[], timeframe: string): void {
+  const columns: Column[] = [
     { key: 'name', label: 'Channel' },
     { key: 'budget', label: 'Budget', format: formatCurrency },
     { key: 'totalSpend', label: 'Total Spend', format: formatCurrency },
     { key: 'totalRevenue', label: 'Total Revenue', format: formatCurrency },
-    { key: 'expectedROI', label: 'Expected ROI (%)', format: (v: number) => v.toFixed(2) + '%' },
-    { key: 'actualROI', label: 'Actual ROI (%)', format: (v: number) => v.toFixed(2) + '%' },
+    { key: 'expectedROI', label: 'Expected ROI (%)', format: (v: unknown) => `${Number(v).toFixed(2)}%` },
+    { key: 'actualROI', label: 'Actual ROI (%)', format: (v: unknown) => `${Number(v).toFixed(2)}%` },
     { key: 'impressions', label: 'Impressions', format: formatNumber },
     { key: 'clicks', label: 'Clicks', format: formatNumber },
     { key: 'conversions', label: 'Conversions', format: formatNumber },
     { 
       key: 'conversionRate', 
       label: 'Conversion Rate',
-      format: (row: unknown) => ((row.clicks && row.impressions) ? ((row.clicks / row.impressions) * 100).toFixed(2) + '%' : '0.00%')
+      format: (row: unknown) => {
+        const data = row as Record<string, number>;
+        return data.clicks && data.impressions ? `${((data.clicks / data.impressions) * 100).toFixed(2)}%` : '0.00%';
+      }
     },
     {
       key: 'cpa',
       label: 'Cost per Acquisition',
-      format: (row: unknown) => (row.conversions ? formatCurrency(row.totalSpend / row.conversions) : '-')
+      format: (row: unknown) => {
+        const data = row as Record<string, number>;
+        return data.conversions ? formatCurrency(data.totalSpend / data.conversions) : '-';
+      }
     }
   ];
   
@@ -570,17 +582,16 @@ export function exportMarketingPerformance(channelData: unknown[], timeframe: st
 /**
  * Export budget optimization recommendations
  */
-export function exportBudgetRecommendations(recommendations: unknown[], goal: string): void {
-  const columns = [
+export function exportBudgetRecommendations(recommendations: Record<string, any>[], goal: string): void {
+  const columns: Column[] = [
     { key: 'name', label: 'Channel' },
     { key: 'currentBudget', label: 'Current Budget', format: formatCurrency },
     { key: 'recommendedBudget', label: 'Recommended Budget', format: formatCurrency },
     { key: 'change', label: 'Change', format: formatCurrency },
-    { key: 'percentChange', label: 'Change %', format: (v: number) => v.toFixed(2) + '%' },
+    { key: 'percentChange', label: 'Change %', format: (v: unknown) => `${Number(v).toFixed(2)}%` },
     { key: 'performanceMetric', label: 'Performance Metric', format: (v: unknown) => {
-      if (goal === 'roi') return v.toFixed(2) + '%';
-      if (goal === 'revenue') return formatCurrency(v);
-      return formatCurrency(v); // CPA or other
+      if (goal === 'roi') return `${Number(v).toFixed(2)}%`;
+      return formatCurrency(v);
     }},
     { key: 'reason', label: 'Recommendation Reason' }
   ];
@@ -619,35 +630,33 @@ export function downloadFile(content: string | Blob, fileName: string, mimeType?
   }, 100);
 }
 
-// Add the new exportScenarioComparison function
-export const exportScenarioComparison = (
+/**
+ * Export scenario comparison data for Excel
+ */
+export function exportScenarioComparison(
   product: Product, 
   baselineData: WeeklyProjection[], 
   scenarioData: WeeklyProjection[],
   scenarioName: string
-) => {
+): void {
   // Define the columns for export
-  const formatCurrency = (value: unknown) => `$${Number(value).toLocaleString()}`;
-  const formatPercentage = (value: unknown) => `${Number(value).toFixed(2)}%`;
-  const formatNumber = (value: unknown) => Number(value).toLocaleString();
-  
-  const headers = [
+  const columns: Column[] = [
     { key: 'week', label: 'Week' },
     { key: 'baseline_revenue', label: 'Baseline Revenue', format: formatCurrency },
     { key: 'scenario_revenue', label: 'Scenario Revenue', format: formatCurrency },
     { key: 'revenue_diff', label: 'Revenue Difference', format: formatCurrency },
-    { key: 'revenue_diff_pct', label: 'Revenue Diff %', format: formatPercentage },
+    { key: 'revenue_diff_pct', label: 'Revenue Diff %', format: (v: unknown) => `${Number(v).toFixed(2)}%` },
     { key: 'baseline_cost', label: 'Baseline Cost', format: formatCurrency },
     { key: 'scenario_cost', label: 'Scenario Cost', format: formatCurrency },
     { key: 'cost_diff', label: 'Cost Difference', format: formatCurrency },
-    { key: 'cost_diff_pct', label: 'Cost Diff %', format: formatPercentage },
+    { key: 'cost_diff_pct', label: 'Cost Diff %', format: (v: unknown) => `${Number(v).toFixed(2)}%` },
     { key: 'baseline_profit', label: 'Baseline Profit', format: formatCurrency },
     { key: 'scenario_profit', label: 'Scenario Profit', format: formatCurrency },
     { key: 'profit_diff', label: 'Profit Difference', format: formatCurrency },
-    { key: 'profit_diff_pct', label: 'Profit Diff %', format: formatPercentage },
+    { key: 'profit_diff_pct', label: 'Profit Diff %', format: (v: unknown) => `${Number(v).toFixed(2)}%` },
     { key: 'baseline_attendance', label: 'Baseline Attendance', format: formatNumber },
     { key: 'scenario_attendance', label: 'Scenario Attendance', format: formatNumber },
-    { key: 'attendance_diff_pct', label: 'Attendance Diff %', format: formatPercentage }
+    { key: 'attendance_diff_pct', label: 'Attendance Diff %', format: (v: unknown) => `${Number(v).toFixed(2)}%` }
   ];
 
   // Generate weekly data for export
@@ -705,53 +714,9 @@ export const exportScenarioComparison = (
       attendance_diff_pct: attendanceDiffPct
     };
   });
-
-  // Add summary row
-  const baselineTotalRevenue = dataset.reduce((sum, row) => sum + row.baseline_revenue, 0);
-  const scenarioTotalRevenue = dataset.reduce((sum, row) => sum + row.scenario_revenue, 0);
-  const baselineTotalCost = dataset.reduce((sum, row) => sum + row.baseline_cost, 0);
-  const scenarioTotalCost = dataset.reduce((sum, row) => sum + row.scenario_cost, 0);
-  const baselineTotalProfit = dataset.reduce((sum, row) => sum + row.baseline_profit, 0);
-  const scenarioTotalProfit = dataset.reduce((sum, row) => sum + row.scenario_profit, 0);
-  const baselineTotalAttendance = dataset.reduce((sum, row) => sum + row.baseline_attendance, 0);
-  const scenarioTotalAttendance = dataset.reduce((sum, row) => sum + row.scenario_attendance, 0);
   
-  const totalRevenueDiff = scenarioTotalRevenue - baselineTotalRevenue;
-  const totalRevenueDiffPct = baselineTotalRevenue !== 0 ? (totalRevenueDiff / baselineTotalRevenue) * 100 : 0;
-  const totalCostDiff = scenarioTotalCost - baselineTotalCost;
-  const totalCostDiffPct = baselineTotalCost !== 0 ? (totalCostDiff / baselineTotalCost) * 100 : 0;
-  const totalProfitDiff = scenarioTotalProfit - baselineTotalProfit;
-  const totalProfitDiffPct = baselineTotalProfit !== 0 ? (totalProfitDiff / baselineTotalProfit) * 100 : 0;
-  const totalAttendanceDiffPct = baselineTotalAttendance !== 0 
-    ? ((scenarioTotalAttendance - baselineTotalAttendance) / baselineTotalAttendance) * 100 
-    : 0;
-    
-  dataset.push({
-    week: 'TOTAL' as any,
-    baseline_revenue: baselineTotalRevenue,
-    scenario_revenue: scenarioTotalRevenue,
-    revenue_diff: totalRevenueDiff,
-    revenue_diff_pct: totalRevenueDiffPct,
-    baseline_cost: baselineTotalCost,
-    scenario_cost: scenarioTotalCost,
-    cost_diff: totalCostDiff,
-    cost_diff_pct: totalCostDiffPct,
-    baseline_profit: baselineTotalProfit,
-    scenario_profit: scenarioTotalProfit,
-    profit_diff: totalProfitDiff,
-    profit_diff_pct: totalProfitDiffPct,
-    baseline_attendance: baselineTotalAttendance,
-    scenario_attendance: scenarioTotalAttendance,
-    attendance_diff_pct: totalAttendanceDiffPct
+  exportForExcel(dataset as Record<string, any>[], columns, {
+    fileName: `Scenario_Comparison_${scenarioName.replace(/\s+/g, '_')}`,
+    includeTimestamp: true
   });
-
-  // Export the data as Excel
-  return exportForExcel(
-    dataset,
-    headers,
-    { 
-      fileName: `${product.info.name}_${scenarioName}_Comparison`,
-      includeTimestamp: true
-    }
-  );
-}; 
+} 

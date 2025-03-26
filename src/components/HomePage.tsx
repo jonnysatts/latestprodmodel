@@ -1,24 +1,35 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '../types/react-types';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Textarea } from './ui/textarea';
-import { PlusCircle, Trash2, Upload, BarChart, BarChart2 } from 'lucide-react';
 import useStore from '../store/useStore';
 import { DEFAULT_SEASONAL_ANALYSIS } from '../types';
 import type { Product, ProductInfo } from '../types';
-import UserProfile from './UserProfile';
 import { Breadcrumbs } from './ui/breadcrumb';
 import { RecentlyViewed } from './ui/recently-viewed';
+// Import icons
+import { PlusCircle, Trash2, BarChart } from 'lucide-react';
+
+// Define local interfaces for TypeScript
+interface NewProductInfo extends Partial<ProductInfo> {
+  name: string;
+  type: ProductInfo['type'];
+  description: string;
+  logo: string | null;
+  forecastType: 'weekly';
+  forecastPeriod: number;
+  eventsPerWeek: number;
+}
 
 export default function HomePage() {
   const navigate = useNavigate();
   const { products, addProduct, deleteProduct } = useStore();
   const [showNewProduct, setShowNewProduct] = useState(false);
-  const [newProduct, setNewProduct] = useState<Partial<ProductInfo>>({
+  const [newProduct, setNewProduct] = useState<NewProductInfo>({
     name: '',
     type: 'Food & Beverage Products',
     description: '',
@@ -56,7 +67,7 @@ export default function HomePage() {
     };
   }, []);
 
-  const handleLogoUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = useCallback((event: any) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -134,6 +145,7 @@ export default function HomePage() {
       });
       
       const product: Product = {
+        id: productId,
         info: {
           id: productId,
           name: newProduct.name || 'New Product',
@@ -211,8 +223,7 @@ export default function HomePage() {
       console.log("Creating product:", product);
       addProduct(product);
       setShowNewProduct(false);
-      setNewProduct((prev: any) => ({
-        ...prev,
+      setNewProduct({
         name: '',
         type: 'Food & Beverage Products',
         description: '',
@@ -220,12 +231,14 @@ export default function HomePage() {
         forecastType: 'weekly',
         forecastPeriod: 12,
         eventsPerWeek: 1
-      }));
+      });
       
-      // Slight delay before navigation to ensure state has updated
-      setTimeout(() => {
-        navigate(`/product/${productId}`);
-      }, 100);
+      // IMPORTANT: Save the product ID to localStorage for persistence between sessions
+      console.log(`Setting current product ID in localStorage: ${productId}`);
+      localStorage.setItem('currentProductId', productId);
+      
+      // Navigate directly to the product page
+      window.location.href = `/product/${productId}`;
       
     } catch (error) {
       console.error("Error creating product:", error);
@@ -235,6 +248,13 @@ export default function HomePage() {
 
   // Add this handler for navigation from RecentlyViewed
   const handleNavigateToProduct = (productId: string) => {
+    console.log(`Navigating to product: ${productId}`);
+    // Save to localStorage for persistence between sessions
+    localStorage.setItem('currentProductId', productId);
+    // Log the value to verify it was set correctly
+    const savedId = localStorage.getItem('currentProductId');
+    console.log(`Saved product ID in localStorage: ${savedId}`);
+    
     navigate(`/product/${productId}`);
   };
 
@@ -251,7 +271,7 @@ export default function HomePage() {
       
       <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-3">
-          <BarChart2 className="h-8 w-8 text-blue-600" />
+          <BarChart className="h-8 w-8 text-blue-600" />
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Fortress Financial Model</h1>
             <p className="text-gray-600 text-sm">
@@ -259,7 +279,6 @@ export default function HomePage() {
             </p>
           </div>
         </div>
-        <UserProfile />
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -278,7 +297,7 @@ export default function HomePage() {
                       <Input
                         id="productName"
                         value={newProduct.name}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewProduct({ ...newProduct, name: e.target.value })}
+                        onChange={(e: any) => setNewProduct({ ...newProduct, name: e.target.value })}
                         placeholder="Enter product name"
                       />
                     </div>
@@ -305,7 +324,7 @@ export default function HomePage() {
                       <Textarea
                         id="description"
                         value={newProduct.description}
-                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewProduct({ ...newProduct, description: e.target.value })}
+                        onChange={(e: any) => setNewProduct({ ...newProduct, description: e.target.value })}
                         placeholder="Enter a brief description of your product"
                         className="h-24"
                       />
@@ -419,7 +438,14 @@ export default function HomePage() {
                     products.map((product) => (
                       <div
                         key={product.info.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                        onClick={() => {
+                          console.log(`Card click - navigating directly to product: ${product.info.id}`);
+                          // Save ID to localStorage
+                          localStorage.setItem('currentProductId', product.info.id);
+                          // Navigate directly
+                          window.location.href = `/product/${product.info.id}`;
+                        }}
                       >
                         <div className="flex items-center gap-4">
                           {product.info.logo ? (
@@ -444,13 +470,23 @@ export default function HomePage() {
                         <div className="flex space-x-2">
                           <Button
                             variant="outline"
-                            onClick={() => navigate(`/product/${product.info.id}`)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              console.log(`Navigating directly to product: ${product.info.id}`);
+                              // Save ID to localStorage
+                              localStorage.setItem('currentProductId', product.info.id);
+                              // Navigate directly
+                              window.location.href = `/product/${product.info.id}`;
+                            }}
                           >
                             View Details
                           </Button>
                           <Button
                             variant="ghost"
-                            onClick={() => deleteProduct(product.info.id)}
+                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                              e.stopPropagation(); // Prevent card click handler from firing
+                              deleteProduct(product.info.id);
+                            }}
                             className="text-red-500 hover:text-red-700 hover:bg-red-50"
                           >
                             <Trash2 className="h-4 w-4" />

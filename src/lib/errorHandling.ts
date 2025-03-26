@@ -1,6 +1,5 @@
 import { FirebaseError } from 'firebase/app';
 import { useNotifications } from '../contexts/NotificationContext';
-import { Firestore } from 'firebase/firestore';
 
 /**
  * Error handling utility for Firebase and other errors

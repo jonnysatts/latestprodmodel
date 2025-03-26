@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "cleanup:find-unused": "node cleanup-scripts/remove-unused-imports.js",
+    "cleanup:fix-unused": "node cleanup-scripts/fix-unused-imports-from-report.js",
     "cleanup:auto-fix": "node cleanup-scripts/fix-linter-issues.js",
     "cleanup:fix-ts-ignores": "node cleanup-scripts/fix-ts-ignores.js",
     "cleanup:fix-empty-types": "node cleanup-scripts/fix-empty-object-types.js",
